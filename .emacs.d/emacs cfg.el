@@ -1,5 +1,31 @@
 ;; Change Default Directory
 (setq default-directory "~/.emacs.d/user-files/")
+
+;; For fun staff
+
+;; Achievements in EMACS!
+(use-package achievements
+  :ensure t
+  :init
+  (achievements-mode t))
+
+;; Time Management via pomodoro-management
+(use-package pomidor
+  :ensure t
+  :bind (("C-c C-t" . pomidor))
+  :hook (
+	 (pomidor-mode . (lambda ()
+			 (display-line-numbers-mode -1)
+			 (setq default-fringe-width 0)
+			 (setq right-fringe-width 0)
+			 (setq left-margin-width 2)
+			 (setq right-margin-width 0)
+			 ;; force fringe update
+			 (set-window-buffer nil (current-buffer))
+			 ))
+	 )
+)
+
 ;; /// GLOBAL SET KEYS ///
 ;; General
 (global-set-key (kbd "<f9>")    'compile)
@@ -14,13 +40,25 @@
 (global-set-key (kbd "M-o")     'ace-window)
 (global-set-key [(control tab)] 'hippie-expand)
 ;; ORG-MODE
-(global-set-key (kbd "<f7>")  'org-toggle-inline-images)
-(global-set-key (kbd "C-c a") 'org-agenda)
-(global-set-key (kbd "C-c c") 'org-capture)
-(global-set-key (kbd "C-c h") 'outline-hide-subtree)
-(global-set-key (kbd "C-c o") 'org-open-at-point)
-(global-set-key (kbd "C-c s") 'org-toggle-heading)
-(global-set-key (kbd "C-c t") 'org-todo-list)
+(use-package org-mode
+  :bind (
+  :map org-mode-map
+       ("<f7>" . org-toggle-inline-images)
+       ("C-c a" . org-agenda)
+       ("C-c c" . org-capture)
+       ("C-c h" . outline-hide-subtree)
+       ("C-c o" . org-open-at-point)
+       ("C-c s" . org-toggle-heading)
+       ("C-c t" . org-todo-list)
+       )
+  :config (
+	   (setq org-log-done 'time)
+	   (setq org-support-shift-select t)
+	   (setq org-confirm-babel-evaluate nil)
+	   (setq org-use-property-inheritance (quote ("DEADLINE")))
+	   )
+  )
+
 ;; Work with Buffers
 (global-set-key (kbd "<f12>")   'save-buffers-kill-emacs)
 (global-set-key (kbd "<f4>")    'eval-buffer)
@@ -43,10 +81,6 @@
 ;; Work with Region
 (global-set-key (kbd "<f8>")  'comment-region)
 (global-set-key (kbd "C-x w") 'write-region)
-;; Google Translate
-(global-set-key (kbd  "\C-c t") 'google-translate-at-point)
-(global-set-key (kbd "\C-c T")  'google-translate-query-translate)
-(global-set-key (kbd "\C-c r")  'google-translate-query-translate-reverse)
 ;;(global-set-key (kbd "C-c l")   (lambda () (interactive)(find-file "~/ORGS/Lib.org")))
 
 ;; FUNCTIONS
@@ -85,6 +119,7 @@
 
 ;; Counsel
 (use-package counsel
+ :ensure t
  :bind
  ([remap insert-char] . counsel-unicode-char))
 
@@ -225,6 +260,7 @@
 (setq ace-window-display-mode t)
 (setq aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l))
 (setq aw-background nil)
+(global-set-key (kbd "M-o") 'ace-window)
 (defvar aw-dispatch-alist
   '(
         (?? aw-show-dispatch-help)
@@ -243,6 +279,7 @@
   "List of actions for `aw-dispatch-default'.")
 
 (use-package diminish
+  :ensure t
   :config
   (diminish 'which-key-mode)
   (diminish 'eldoc-mode)
@@ -281,7 +318,7 @@
   (setq-default elfeed-search-filter "@1-month-ago +unread"))
 
 ;; Display feed URL
-(defun my-display-current-entry-feed ()
+(defun my/display-current-entry-feed ()
   (interactive)
   (let ((entry (elfeed-search-selected t)))
     (when entry
@@ -307,23 +344,28 @@
   (setq google-translate-default-source-language "en")
   (setq google-translate-default-target-language "ru")
   (setq google-translate-pop-up-buffer-set-focus t)
-)
+  :bind
+  (
+   ("C-c t" . google-translate-at-point)
+   ("C-c T" . google-translate-query-translate)
+   ("C-c r" . google-translate-query-translate-reverse)
+   ))
 
- (defun google-translate--search-tkk ()
-   "Search TKK."
-   (list 430675 2721866130))
+(defun google-translate--search-tkk ()
+  "Search TKK."
+  (list 430675 2721866130))
 
 ;; HIhiHIhiHIhiHIhiHIhiHIhiHIhiHIhiHI Hippie Expand
 (setq hippie-expand-try-functions-list
-	'(
-	  try-expand-dabbrev-visible
-	  try-expand-dabbrev
-	  try-expand-dabbrev-all-buffers
-	  try-expand-dabbrev-from-kill
-	  try-complete-file-name-partially
-	  try-complete-file-name
+      '(
+	try-expand-dabbrev-visible
+	try-expand-dabbrev
+	try-expand-dabbrev-all-buffers
+	try-expand-dabbrev-from-kill
+	try-complete-file-name-partially
+	try-complete-file-name
 	)
-)
+      )
 
 ;; Multicursors
 (require 'multiple-cursors)
@@ -333,7 +375,7 @@
   :ensure t
   :config
   (reverse-im-activate "russian-computer")
-)
+  )
 (require 'use-package)
 (which-key-mode t)
 
@@ -341,18 +383,13 @@
 (setq org-babel-load-languages
       '(
 	(emacs-lisp . t)
-	(shell .      t)
-	(python .     t)
-	(C .          t)
-	(latex .      t)
+	(shell      . t)
+	(python     . t)
+	(C          . t)
+	(latex      . t)
 	)
       )
 
-;; Work with Org-mode
-(setq org-log-done 'time)
-(setq org-support-shift-select t)
-(setq org-confirm-babel-evaluate nil)
-(setq org-use-property-inheritance (quote ("DEADLINE")))
 ;; European Date Format
 (setq org-time-stamp-custom-formats '("<%d/%m/%y %a>" . "<%d/%m/%y %a %H:%M>"))
 (setq org-display-custom-times t)
@@ -368,6 +405,8 @@
 
 ;; Always folded files
 (setq org-startup-folded t)
+
+;; FFFFFFFFFF My functions SSSSSSSSSS
 
 ;; Insert code block quickly
 (defun my/org-insert-src-block(src-code-type)
@@ -445,17 +484,21 @@
 ;; Load AGENDA after start emacs
 (add-hook 'after-init-hook #'org-agenda-list)
 
-;; AGENDA
-(setq org-agenda-files '("~/AGENDA/"))
-(setq org-agenda-show-all-dates         t)
-(setq calendar-week-start-day           1)
-(setq org-catch-invisible-edits       nil)
+;; Agenda
 (setq org-agenda-skip-deadline-if-done  t)
 (setq org-agenda-skip-scheduled-if-done t)
+(setq org-agenda-show-all-dates         t)
+(setq org-agenda-files     '("~/AGENDA/"))
+(setq calendar-week-start-day           1)
+(setq org-catch-invisible-edits       nil)
 (setq org-deadline-warning-days        14)
 (setq org-log-done                      t)
+
 ;; Work On Linux
 ;;(setq org-agenda-files '("/home/ilya/AGENDA/Habits.org" "/home/ilya/AGENDA/Univer.org"))
+
+
+
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -464,7 +507,7 @@
  '(custom-safe-themes
    '("8c7e832be864674c220f9a9361c851917a93f921fedb7717b1b5ece47690c098" "aec7b55f2a13307a55517fdf08438863d694550565dee23181d2ebd973ebd6b8" "15466a777080bcd4f71fea193fd7e4988552919c0e8a09621883aa19166b5099" default))
  '(package-selected-packages
-   '(achievements doom-themes counsel theme-looper which-key use-package reverse-im paradox org-bullets multiple-cursors google-translate flycheck elfeed diminish calfw-org calfw ace-window ac-math)))
+   '(pomidor achievements doom-themes counsel theme-looper which-key use-package reverse-im paradox org-bullets multiple-cursors google-translate flycheck elfeed diminish calfw-org calfw ace-window ac-math)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
