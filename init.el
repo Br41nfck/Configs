@@ -155,7 +155,6 @@
     words))
 
 (defun my-add-words-to-dictionary (words)
-  "Добавить слова в словарь."
   (when words
     (with-temp-buffer
       (when (file-exists-p my-dictionary-file)
@@ -355,5 +354,4 @@
 (add-hook 'after-init-hook
           (lambda () (setq gc-cons-threshold (* 16 1000 1000))))
 
-(message "init.el загружен успешно!")
 ;;; init.el ends here
