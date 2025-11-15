@@ -1,11 +1,11 @@
 ;; FILE: autounattend-mode.el
 ;;; autounattend-mode.el --- Major mode for Windows autounattend.xml files -*- lexical-binding: t; -*-
-;; Copyright (C) 2025 Your Name
-;; Author: Your Name <you@example.com>
-;; URL: https://github.com/yourname/emacs-autounattend-mode
+;; Copyright (C) 2025
+;; Author: Br41nfck
+;; URL: https://github.com/Br41nfck/Configs/tree/main/.emacs.d/lisp/autounattend-mode.el
 ;; Version: 0.1.0
 ;; Keywords: xml windows unattended autounattend
-;; Package-Requires: ((emacs "26.1") (nxml-mode "0"))
+;; Package-Requires: ((emacs "26.1"))
 ;; SPDX-License-Identifier: MIT
 ;;; Commentary:
 ;;
@@ -54,7 +54,6 @@
      "true" "false"))
   "Completion data for autounattend.xml files.")
 
-;;; --- Fixed completion helper functions ---
 (defun autounattend--inside-attribute-value-p ()
   "Check if point is inside an attribute value."
   (save-excursion
@@ -89,7 +88,7 @@
     (when (re-search-backward "\\b\\([a-zA-Z:-]+\\)\\s-*=\\s-*\"" (line-beginning-position) t)
       (match-string 1))))
 
-;;; --- Completion helper functions ---
+
 (defun autounattend--get-attribute-values (attribute)
   "Get possible values for ATTRIBUTE."
   (cond
@@ -112,7 +111,6 @@
     (format "Component: %s" symbol))
    (t (format "Value: %s" symbol))))
 
-;;; --- Main completion functions ---
 (defun autounattend-completion-at-point ()
   "Provide completion at point for autounattend.xml elements and attributes."
   (cond
@@ -179,7 +177,7 @@
     (error nil))
   (message "autounattend-mode: ready"))
 
-;; --- Mode setup with improved reliability ---
+
 (defun autounattend-mode-setup ()
   "Setup function for autounattend-mode with enhanced completion."
   ;; Basic functionality that always works
@@ -210,7 +208,7 @@
 
   (message "autounattend-mode: ready with enhanced completion"))
 
-;;; --- Major mode ---
+
 (define-derived-mode autounattend-mode nxml-mode "Autounattend"
   "Major mode for editing Windows Autounattend.xml files.
 Provides syntax highlighting, validation, and completion for Windows
@@ -240,7 +238,7 @@ Key bindings:
     (forward-line -2)
     (indent-for-tab-command)))
 
-;;; --- XSD directory ---
+
 (defcustom autounattend-xsd-directory
   (expand-file-name "schemas/" user-emacs-directory)
   "Directory containing XSD schemas for autounattend.xml validation."
@@ -259,9 +257,6 @@ Key bindings:
 
 (defun autounattend--xsd-installed-p ()
   (file-exists-p (expand-file-name autounattend-schema-file autounattend-xsd-directory)))
-;;; --- Automatic download of Microsoft XSD schemas ---
-;; (Removed download functions for simplicity, keeping embedded fallbacks)
-;;; Embedded extended component schemas
 
 (defconst autounattend-embedded-component-xsd
   '(("Microsoft-Windows-Shell-Setup.xsd"
@@ -316,7 +311,6 @@ Key bindings:
       (unless (file-exists-p file)
         (with-temp-file file (insert content))))))
 
-;;; --- Built‑in minimal fallback XSD schema ---
 (defconst autounattend-fallback-xsd
   "<?xml version='1.0'?>
 <xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema'>
@@ -510,7 +504,7 @@ Key bindings:
 ")))
   (message "Proper RelaxNG schema created!"))
 
-;;; --- Key Bindings ---
+;;; Key Bindings 
 (defvar autounattend-mode-map
   (let ((map (make-sparse-keymap)))
     ;; Main functionality
@@ -528,7 +522,7 @@ Key bindings:
     map)
   "Keymap for `autounattend-mode'.")
 
-;;; --- Utility Functions ---
+;;; Utility Functions
 (defun autounattend-force-schema-setup ()
   "Force schema setup for current buffer using available functions."
   (interactive)
@@ -572,13 +566,13 @@ Key bindings:
              (message "Validation error: %s" err))))
       (message "Schema validation: INACTIVE"))))
 
-;;; --- File associations ---
+;;;  File associations 
 (add-to-list 'auto-mode-alist '("autounattend\\.xml\\'" . autounattend-mode))
 (add-to-list 'auto-mode-alist '("unattend\\.xml\\'" . autounattend-mode))
 (add-to-list 'auto-mode-alist '("Autounattend\\.xml\\'" . autounattend-mode))
 (add-to-list 'auto-mode-alist '("Unattend\\.xml\\'" . autounattend-mode))
 
-;;; --- Self-test ---
+;;;  Self-test 
 (defun autounattend-selftest ()
   "Run diagnostics for autounattend-mode with completion."
   (interactive)
@@ -636,7 +630,7 @@ To fix completion:
       (princ "3. M-x autounattend-test-completion
 "))))
 
-;;; --- Wizard: interactive autounattend generator ---
+;;; Wizard: interactive autounattend generator 
 (defun autounattend--read-choices (prompt choices)
   "Prompt with PROMPT and a list of CHOICES, return selected choice."
   (completing-read (concat prompt ": ") choices nil t))
@@ -762,7 +756,7 @@ To fix completion:
         (with-temp-file file (insert content)))))
   (message "autounattend: full component library installed to %s" autounattend-xsd-directory))
 
-;; --- Additional utility functions ---
+;; Additional utility functions 
 (defun autounattend-check-completion ()
   "Check if completion functions are properly defined."
   (interactive)
@@ -952,7 +946,7 @@ Available commands:
       (princ "• C-c C-c - Trigger company completion
 "))))
 
-;;; --- Corrected eval-after-load ---
+;;; Corrected eval-after-load 
 (eval-after-load 'autounattend-mode
   '(progn
      (autounattend--ensure-xsd-dir)
