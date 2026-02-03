@@ -6,29 +6,32 @@ cpuid --ext 29 && set archl amd64 || set archl i386
 
 ##### Parameters
 set user-class iPXE
-set wds <WDS-ADDRESS>
+set http_srv <HTTP-IP>
 
 
 ############ MAIN MENU ############
 :start
 menu iPXE boot menu
 item --gap --             	------------------------------- Installation ----------------------------
-item --key w wds  		WDS
-item win10iso  			Windows 10 ISO
+item --key w wds  			WDS
+#item wds_test 				TEST_WDS
+item win10iso  				Windows 10 ISO
 item win11_24h2iso  		Windows 11 24H2 ISO
 item win11_25h2iso  		Windows 11 25H2 ISO
-#item ubuntu  			Ubuntu
+#item ubuntu  				Ubuntu
 item --gap --             	------------------------------- Utilities -------------------------------
-item Acronis			Acronis Live
-item netbootxyz  		boot.netboot.xyz
-item Strelec2025  		WinPE Strelec 2025.08.22
+item Acronis				Acronis Live
+item netbootxyz  			boot.netboot.xyz
+item Strelec2025  			WinPE Strelec 2025.08.22
 item WinPEBasicEnhanced  	WinPE Basic Enhanced
-item HirenbootCD		Hiren Boot CD v1.0.8 
+item HirenbootCD			Hiren Boot CD v1.0.8 
+item KRD					Kaspersky Rescue Disk
 item --gap --             	------------------------------- Advanced options ------------------------
 item --key c config       	(C)onfigure settings
-item --key s shell          	Drop to iPXE (s)hell
-item reboot               	Reboot computer
+item --key s shell          Drop to iPXE (s)hell
+item --key r reboot         (R)eboot computer
 item --key x exit         	E(x)it iPXE and continue BIOS boot
+
 
 
 
@@ -71,41 +74,55 @@ goto start
 
 ############ Windows
 :wds
-sanboot --no-describe ${wds}/iso/wds.iso 		|| goto start
+sanboot --no-describe ${http_srv}/iso/wds.iso 			|| goto start
 
 :win10iso
-sanboot --no-describe ${wds}/iso/windows10.iso 		|| goto start
+sanboot --no-describe ${http_srv}/iso/windows10.iso 		|| goto start
 
 :win11_24h2iso
-sanboot --no-describe ${wds}/iso/windows11_24h2.iso 	|| goto start
+sanboot --no-describe ${http_srv}/iso/windows11_24h2.iso || goto start
 
 :win11_25h2iso
-sanboot --no-describe ${wds}/iso/windows11_25h2.iso 	|| goto start
+sanboot --no-describe ${http_srv}/iso/windows11_25h2.iso || goto start
+
+#:wds_test
+#kernel ${http_srv}/win/wimboot 
+#initrd ${http_srv}/win/boot/BCD BCD
+#initrd ${http_srv}/win/boot/boot.sdi boot.sdi
+#initrd ${http_srv}/win/boot/bootmgr bootmgr
+#initrd ${http_srv}/win/boot/bootmgr.efi bootmgr.efi
+#initrd -n boot.wim ${http_srv}/win/sources/boot.wim boot.wim 
+#boot
+#goto start
 
 
 ############ Linux
-:ubuntu
-chain ${wds}/ubuntu.ipxe 	|| prompt --timeout 5000 Loading ubuntu.ipxe failed, hit any key for shell; shell
-:astra
-chain ${wds}/astra.ipxe 	|| prompt --timeout 5000 Loading astra.ipxe failed, hit any key for shell; shell
+#:ubuntu
+#chain ${http_srv}/ubuntu.ipxe 	|| prompt --timeout 5000 Loading ubuntu.ipxe failed, hit any key for shell; shell
+#:astra
+#chain ${http_srv}/astra.ipxe 	|| prompt --timeout 5000 Loading astra.ipxe failed, hit any key for shell; shell
 
 
 ############ Utilities
 :Acronis
-sanboot --no-describe ${wds}/iso/AcronisBootablePEMedia.iso || goto error
+sanboot --no-describe ${http_srv}/iso/AcronisBootablePEMedia.iso || goto error
 goto main_menu
 
 :netbootxyz
 chain --autofree http://boot.netboot.xyz/ipxe/netboot.xyz.efi || goto failed
 
 :Strelec2025
-sanboot ${wds}/iso/WinPE11_Strelec_2025.iso || goto failed
+sanboot ${http_srv}/iso/WinPE11_Strelec_2025.iso || goto failed
 goto start
 
 :WinPEBasicEnhanced
-sanboot ${wds}/iso/WinPEBasicEnhanced.iso || goto failed
+sanboot ${http_srv}/iso/WinPEBasicEnhanced.iso || goto failed
 goto start
 
 :HirenbootCD
-sanboot ${wds}/iso/HBCD_PE_x64.iso || goto error
+sanboot ${http_srv}/iso/HBCD_PE_x64.iso || goto error
+goto main_menu
+
+:KRD
+sanboot ${http_srv}/iso/krd.iso || goto error
 goto main_menu
