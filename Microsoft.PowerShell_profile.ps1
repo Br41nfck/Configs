@@ -20,7 +20,7 @@ Clear-Host
 
 ### PROGRAMS ###
 function npp {
-    & "C:\Program Files (x86)\Notepad++\notepad++.exe" @args
+    & "C:\Program Files\Notepad++\notepad++.exe" @args
 }
 
 function vs {
@@ -303,7 +303,7 @@ function Create-WinPEUSB {
     MakeWinPEMedia /UFD $WinPEPath $USBDrive
 }
 
-# Функция: Создание ISO WinPE
+# Создание ISO WinPE
 function Create-WinPEISO {
     param(
         [Parameter(Mandatory=$true)]
@@ -318,7 +318,10 @@ function Create-WinPEISO {
 
 ### CUSTOM ###
 function wt {
-	# https://github.com/zh54321/Get-WorkTime
+	$modulePath = Join-Path $HOME "Documents\WindowsPowerShell\Modules"
+	git clone https://github.com/zh54321/Get-WorkTime (Join-Path $modulePath "Get-WorkTime")
+	# Import the module
+	Import-Module Get-WorkTime
 	Get-WorkTime | Format-Table -AutoSize -Wrap
 }
 
