@@ -11,34 +11,32 @@ set http_srv <HTTP-SRV>
 
 ############ MAIN MENU ############
 :main_menu
-menu iPXE boot menu
-item --gap --             	------------------------------- Installation ----------------------------
-# Windows
-item --key w wds  			  WDS
-#item wds_test 				    TEST_WDS
-item win10iso  				    Windows 10 ISO
-item win11_24h2iso  		  Windows 11 24H2 ISO
-item win11_25h2iso  		  Windows 11 25H2 ISO
-item ubuntud2204  			  Ubuntu Desktop 22.04
-item ubuntud2404  			  Ubuntu Desktop 24.04
-item ubuntud2510			    Ubuntu Desktop 25.10
-# Linux
-item astra175				      Astra Linux 1.7.5
-item astra183				      Astra Linux 1.8.3
-item astra_orel				    Astra Orel 1.7.5
-item astra_orel_mwcc		  Astra Orel 1.7.5 + MWCC
-item astra_voronezh 		  Astra Voronezh 1.7.5
+menu iPXE MENU
+item --gap --             	------------------------------- Windows --------------------------------
+item --key w wds  			WDS
+#item wds_test 				TEST_WDS
+item win10iso  				Windows 10 ISO
+item win11_24h2iso  		Windows 11 24H2 ISO
+item win11_25h2iso  		Windows 11 25H2 ISO
+item --gap --				------------------------------- Ubuntu ---------------------------------
+item ubuntud2204  			Ubuntu Desktop 22.04
+item ubuntud2404  			Ubuntu Desktop 24.04
+item ubuntud2510			Ubuntu Desktop 25.10
+item --gap --				------------------------------- Astra Linux ----------------------------
+item astra175				Astra Linux 1.7.5
+item astra183				Astra Linux 1.8.3
+item astra_orel				Astra Orel 1.7.5
+item astra_orel_mwcc		Astra Orel 1.7.5 + MWCC
+item astra_voronezh 		Astra Voronezh 1.7.5
 item astra_voronezh_mwcc	Astra Voronezh 1.7.5 + MWCC
-item astra_smolensk			  Astra Smolensk 1.7.5
+item astra_smolensk			Astra Smolensk 1.7.5
 item astra_smolensk_mwcc	Astra Smolensk 1.7.5 + MWCC
-# Utilities
 item --gap --             	------------------------------- Utilities -------------------------------
 item Acronis				Acronis Live
 item netbootxyz  			boot.netboot.xyz
 item Strelec2025  			WinPE Strelec 2025.08.22
 item WinPEBasicEnhanced  	WinPE Basic Enhanced
 item HirenbootCD			Hiren Boot CD v1.0.8 
-# Options
 item --gap --             	------------------------------- Advanced options ------------------------
 item --key c config       	(C)onfigure settings
 item --key s shell          Drop to iPXE (s)hell
@@ -46,13 +44,18 @@ item --key r reboot         (R)eboot computer
 item --key x exit         	E(x)it iPXE and continue BIOS boot
 
 
-choose --timeout 5000 --default wds selected || goto cancel
-goto ${selected}
+isset ${menu} && set timeout 0 || set timeout 5000
+choose --timeout ${timeout} --default ${menu} menu || goto local
+echo ${cls}
+goto ${menu} ||
+iseq ${sigs_enabled} true && goto verify_sigs || goto change_menu
+
 
 
 ############ IPXE OPTIONS ############
-:cancel
-echo You cancelled the menu, dropping you to a shell
+:local
+echo Booting from local disk...
+exit 0
 
 :shell
 echo Type 'exit' to get the back to the menu
@@ -62,8 +65,9 @@ set submenu-timeout 0
 goto main_menu
 
 :error
-echo Booting error, dropping to shell
-goto shell
+echo Error occured, press any key to return to iPXE menu...
+prompt
+goto main_menu
 
 :reboot
 reboot
@@ -80,16 +84,16 @@ goto main_menu
 
 ############ Windows
 :wds
-sanboot --no-describe ${http_srv}/iso/wds.iso 			|| goto error
+sanboot --no-describe ${http_srv}/iso/wds.iso 				|| goto error
 
 :win10iso
-sanboot --no-describe ${http_srv}/iso/windows10.iso 	|| goto error
+sanboot --no-describe ${http_srv}/iso/windows10.iso 		|| goto error
 
 :win11_24h2iso
-sanboot --no-describe ${http_srv}/iso/windows11_24h2.iso || goto error
+sanboot --no-describe ${http_srv}/iso/windows11_24h2.iso 	|| goto error
 
 :win11_25h2iso
-sanboot --no-describe ${http_srv}/iso/windows11_25h2.iso || goto error
+sanboot --no-describe ${http_srv}/iso/windows11_25h2.iso 	|| goto error
 
 #:wds_test
 #kernel ${http_srv}/win/wimboot 
@@ -103,16 +107,29 @@ sanboot --no-describe ${http_srv}/iso/windows11_25h2.iso || goto error
 
 
 ############ Linux
-
 :ubuntud2204
-sanboot --no-describe ${http_srv}/iso/ubuntu-22.04-desktop-amd64.iso 	  || goto error
+set ubuntud2204-name ubuntu-22.04-desktop-amd64
+set ubuntud2204-base-url ${http_srv}/ubuntu/${ubuntud2204-name}/casper
+kernel ${ubuntud2204-base-url}/vmlinuz initrd=initrd ip=dhcp netcfg/link_wait_timeout=10 netcfg/dhcp_timeout=60 url=${http_srv}/iso/${ubuntud2204-name}.iso autoinstall ds=nocloud-net;s=${ubuntud2204-base-url}/
+initrd ${ubuntud2204-base-url}/initrd
+boot
+goto main_menu
 
 :ubuntud2404
-sanboot --no-describe ${http_srv}/iso/ubuntu-24.04.03-desktop-amd64.iso || goto error
+set ubuntud2404-name ubuntu-24.04.03-desktop-amd64
+set ubuntu2404-base-url ${http_srv}/ubuntu/${ubuntud2404-name}/casper
+kernel ${ubuntu2404-base-url}/vmlinuz initrd=initrd ip=dhcp netcfg/link_wait_timeout=10 netcfg/dhcp_timeout=60 url=${http_srv}/iso/${ubuntud2404-name}.iso autoinstall ds=nocloud-net;s=${ubuntu2404-base-url}/
+initrd ${ubuntu2404-base-url}/initrd
+boot
+goto main_menu
 
 :ubuntud2510
-sanboot --no-describe ${http_srv}/iso/ubuntu-25.10-desktop-amd64.iso   	|| goto error
-
+set ubuntud2510-name ubuntu-25.10-desktop-amd64
+set ubuntu2510-base-url ${http_srv}/ubuntu/${ubuntud2510-name}/casper
+kernel ${ubuntu2510-base-url}/vmlinuz initrd=initrd ip=dhcp netcfg/link_wait_timeout=10 netcfg/dhcp_timeout=60 url=${http_srv}/iso/${ubuntud2510-name}.iso autoinstall ds=nocloud-net;s=${ubuntu2510-base-url}/
+initrd ${ubuntu2510-base-url}/initrd
+boot
+goto main_menu
 
 :astra175
 kernel ${http_srv}/astra/astra/NETINST/linux initrd=initrd.gz vga=788 auto=true priority=critical debian-installer/locale=ru_RU debian-installer/allow_unauthenticated=true console-keymaps-at/keymap=ru #hostname=test2 domain= astra-license/license=true url=192.168.50.1/astra/astra181/preseed.cfg interface=auto netcfg/dhcp_timeout=60 || goto error
@@ -165,7 +182,7 @@ boot
 goto main_menu
 
 
-############ Utilities
+############ Utilities 
 :Acronis
 sanboot --no-describe ${http_srv}/iso/AcronisBootablePEMedia.iso 	|| goto error
 goto main_menu
@@ -174,13 +191,13 @@ goto main_menu
 chain --autofree http://boot.netboot.xyz/ipxe/netboot.xyz.efi 		|| goto error
 
 :Strelec2025
-sanboot ${http_srv}/iso/WinPE11_Strelec_2025.iso 					        || goto error
+sanboot ${http_srv}/iso/WinPE11_Strelec_2025.iso 					|| goto error
 goto main_menu
 
 :WinPEBasicEnhanced
-sanboot ${http_srv}/iso/WinPEBasicEnhanced.iso 						        || goto error
+sanboot ${http_srv}/iso/WinPEBasicEnhanced.iso 						|| goto error
 goto main_menu
 
 :HirenbootCD
-sanboot ${http_srv}/iso/HBCD_PE_x64.iso 							            || goto error
+sanboot ${http_srv}/iso/HBCD_PE_x64.iso 							|| goto error
 goto main_menu
