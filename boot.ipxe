@@ -1,43 +1,28 @@
 #!ipxe
 
-# Figure out if client is 64-bit capable
-#cpuid --ext 29 && set arch x64 || set arch x86
-#cpuid --ext 29 && set archl amd64 || set archl i386
+##### Architecture detection
+isset ${arch} && goto skip_arch_detect ||
+cpuid --ext 29 && set arch x86_64 || set arch i386
+iseq ${buildarch} arm64 && set arch arm64
+
+:skip_arch_detect
+isset ${menu} && goto ${menu}
 
 ##### Parameters
 set user-class iPXE
-set http_srv <HTTP-SRV>
+set http_srv http://192.168.50.1
 
 
 ############ MAIN MENU ############
 :main_menu
+iseq ${arch} x86_64 && set arch_a amd64 || set arch_a ${arch}
 menu iPXE MENU
-item --gap --             	------------------------------- Windows --------------------------------
+item --gap --             	------------------------------- Installation ------------------------------
 item --key w wds  			WDS
-#item wds_test 				TEST_WDS
-item win10iso  				Windows 10 ISO
-item win11_24h2iso  		Windows 11 24H2 ISO
-item win11_25h2iso  		Windows 11 25H2 ISO
-item --gap --				------------------------------- Ubuntu ---------------------------------
-item ubuntud2204  			Ubuntu Desktop 22.04
-item ubuntud2404  			Ubuntu Desktop 24.04
-item ubuntud2510			Ubuntu Desktop 25.10
-item --gap --				------------------------------- Astra Linux ----------------------------
-item astra175				Astra Linux 1.7.5
-item astra183				Astra Linux 1.8.3
-item astra_orel				Astra Orel 1.7.5
-item astra_orel_mwcc		Astra Orel 1.7.5 + MWCC
-item astra_voronezh 		Astra Voronezh 1.7.5
-item astra_voronezh_mwcc	Astra Voronezh 1.7.5 + MWCC
-item astra_smolensk			Astra Smolensk 1.7.5
-item astra_smolensk_mwcc	Astra Smolensk 1.7.5 + MWCC
-item --gap --             	------------------------------- Utilities -------------------------------
-item Acronis				Acronis Live
-item netbootxyz  			boot.netboot.xyz
-item Strelec2025  			WinPE Strelec 2025.08.22
-item WinPEBasicEnhanced  	WinPE Basic Enhanced
-item HirenbootCD			Hiren Boot CD v1.0.8 
-item --gap --             	------------------------------- Advanced options ------------------------
+item windows_menu			Install Windows ISO
+item linux_menu				Install Linux
+item utilities_menu			Utilities
+item --gap --             	------------------------------- Advanced options ---------------------
 item --key c config       	(C)onfigure settings
 item --key s shell          Drop to iPXE (s)hell
 item --key r reboot         (R)eboot computer
@@ -47,10 +32,63 @@ item --key x exit         	E(x)it iPXE and continue BIOS boot
 isset ${menu} && set timeout 0 || set timeout 5000
 choose --timeout ${timeout} --default ${menu} menu || goto local
 echo ${cls}
-goto ${menu} ||
-iseq ${sigs_enabled} true && goto verify_sigs || goto change_menu
+goto ${menu}
 
+### SUBMENU ###
+:windows_menu
+menu Windows
+#item wds_test 				TEST_WDS
+item win10iso  				Windows 10 ISO
+item win11_24h2iso  		Windows 11 24H2 ISO
+item win11_25h2iso  		Windows 11 25H2 ISO
+item back Back
+choose selected || goto main_menu
+goto ${selected}
 
+:linux_menu
+menu Linux
+item astra_menu				
+item ubuntu_menu
+item back Back
+choose selected || goto main_menu
+goto ${selected}
+
+:astra_menu
+menu Astra
+item astra175				Astra Linux 1.7.5
+item astra183				Astra Linux 1.8.3
+item astra_orel				Astra Orel 1.7.5
+item astra_orel_mwcc		Astra Orel 1.7.5 + MWCC
+item astra_voronezh 		Astra Voronezh 1.7.5
+item astra_voronezh_mwcc	Astra Voronezh 1.7.5 + MWCC
+item astra_smolensk			Astra Smolensk 1.7.5
+item astra_smolensk_mwcc	Astra Smolensk 1.7.5 + MWCC
+item back Back
+choose selected || goto main_menu
+goto ${selected}
+
+:ubuntu_menu
+menu Ubuntu
+item ubuntud2204  			Ubuntu Desktop 22.04
+item ubuntud2404  			Ubuntu Desktop 24.04
+item ubuntud2510			Ubuntu Desktop 25.10
+#item ubuntus2204  			Ubuntu Server 22.04
+item ubuntus2404  			Ubuntu Server 24.04
+#item ubuntus2510  			Ubuntu Server 25.10
+item back Back
+choose selected || goto main_menu
+goto ${selected}
+
+:utilities_menu
+menu Utilities
+item Acronis				Acronis Live
+item netbootxyz  			boot.netboot.xyz
+item Strelec2025  			WinPE Strelec 2025.08.22
+item WinPEBasicEnhanced  	WinPE Basic Enhanced
+item HirenbootCD			Hiren Boot CD v1.0.8 
+item back Back
+choose selected || goto main_menu
+goto ${selected}
 
 ############ IPXE OPTIONS ############
 :local
@@ -86,14 +124,14 @@ goto main_menu
 :wds
 sanboot --no-describe ${http_srv}/iso/wds.iso 				|| goto error
 
-:win10iso
-sanboot --no-describe ${http_srv}/iso/windows10.iso 		|| goto error
+# :win10iso
+# sanboot --no-describe ${http_srv}/iso/windows10.iso 		|| goto error
 
-:win11_24h2iso
-sanboot --no-describe ${http_srv}/iso/windows11_24h2.iso 	|| goto error
+# :win11_24h2iso
+# sanboot --no-describe ${http_srv}/iso/windows11_24h2.iso 	|| goto error
 
-:win11_25h2iso
-sanboot --no-describe ${http_srv}/iso/windows11_25h2.iso 	|| goto error
+# :win11_25h2iso
+# sanboot --no-describe ${http_srv}/iso/windows11_25h2.iso 	|| goto error
 
 #:wds_test
 #kernel ${http_srv}/win/wimboot 
@@ -116,12 +154,21 @@ boot
 goto main_menu
 
 :ubuntud2404
-set ubuntud2404-name ubuntu-24.04.03-desktop-amd64
+set ubuntud2404-name ubuntu-24.04.3-desktop-amd64
 set ubuntu2404-base-url ${http_srv}/ubuntu/${ubuntud2404-name}/casper
 kernel ${ubuntu2404-base-url}/vmlinuz initrd=initrd ip=dhcp netcfg/link_wait_timeout=10 netcfg/dhcp_timeout=60 url=${http_srv}/iso/${ubuntud2404-name}.iso autoinstall ds=nocloud-net;s=${ubuntu2404-base-url}/
 initrd ${ubuntu2404-base-url}/initrd
 boot
 goto main_menu
+
+:ubuntus2404
+set ubuntus2404-name ubuntu-24.04.3-live-server-amd64
+set ubuntu2404-base-url ${http_srv}/ubuntu/${ubuntus2404-name}/casper
+kernel ${ubuntu2404-base-url}/vmlinuz initrd=initrd ip=dhcp netcfg/link_wait_timeout=10 netcfg/dhcp_timeout=60 url=${http_srv}/iso/${ubuntus2404-name}.iso autoinstall ds=nocloud-net;s=${ubuntu2404-base-url}/
+initrd ${ubuntu2404-base-url}/initrd
+boot
+goto main_menu
+
 
 :ubuntud2510
 set ubuntud2510-name ubuntu-25.10-desktop-amd64
