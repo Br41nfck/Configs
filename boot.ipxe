@@ -47,8 +47,8 @@ goto ${selected}
 
 :linux_menu
 menu Linux
-item astra_menu				
-item ubuntu_menu
+item astra_menu				Astra Linux			
+item ubuntu_menu			Ubuntu Linux
 item back Back
 choose selected || goto main_menu
 goto ${selected}
