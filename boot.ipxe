@@ -1,12 +1,10 @@
 #!ipxe
 
 ##### Architecture detection
-isset ${arch} && goto skip_arch_detect ||
-cpuid --ext 29 && set arch x86_64 || set arch i386
-iseq ${buildarch} arm64 && set arch arm64
+isset ${arch} && goto skip_arch_detect || cpuid --ext 29 && set arch x86_64 || set arch i386
 
 :skip_arch_detect
-isset ${menu} && goto ${menu}
+isset ${menu} && goto ${menu} || set menu main_menu
 
 ##### Parameters
 set user-class iPXE
@@ -19,8 +17,8 @@ iseq ${arch} x86_64 && set arch_a amd64 || set arch_a ${arch}
 menu iPXE MENU
 item --gap --             	------------------------------- Installation ------------------------------
 item --key w wds  			WDS
-item windows_menu			Install Windows ISO
-item linux_menu				Install Linux
+item windows_menu			Windows ISO
+item linux_menu				Linux
 item utilities_menu			Utilities
 item --gap --             	------------------------------- Advanced options ---------------------
 item --key c config       	(C)onfigure settings
@@ -29,21 +27,25 @@ item --key r reboot         (R)eboot computer
 item --key x exit         	E(x)it iPXE and continue BIOS boot
 
 
-isset ${menu} && set timeout 0 || set timeout 5000
-choose --timeout ${timeout} --default ${menu} menu || goto local
+isset ${menu} || set menu main_menu
+set timeout 5000
+choose --timeout ${timeout} --default wds --frozen menu && goto ${selected} || goto wds
 echo ${cls}
-goto ${menu}
+goto ${menu} || iseq ${sigs_enabled} true && goto verify_sigs || goto change_menu
+isset ${menu} && goto ${menu} || goto main_menu
+
 
 ### SUBMENU ###
 :windows_menu
 menu Windows
-#item wds_test 				TEST_WDS
+item litetouchmdt			LiteTouch PE MDT ISO
+item win10newtest			Windows 10 New AutoTest
 item win10iso  				Windows 10 ISO
 item win11_24h2iso  		Windows 11 24H2 ISO
 item win11_25h2iso  		Windows 11 25H2 ISO
 item back Back
 choose selected || goto main_menu
-goto ${selected}
+isset ${selected} && goto ${selected} || goto main_menu
 
 :linux_menu
 menu Linux
@@ -51,7 +53,7 @@ item astra_menu				Astra Linux
 item ubuntu_menu			Ubuntu Linux
 item back Back
 choose selected || goto main_menu
-goto ${selected}
+isset ${selected} && goto ${selected} || goto main_menu
 
 :astra_menu
 menu Astra
@@ -65,19 +67,17 @@ item astra_smolensk			Astra Smolensk 1.7.5
 item astra_smolensk_mwcc	Astra Smolensk 1.7.5 + MWCC
 item back Back
 choose selected || goto main_menu
-goto ${selected}
+isset ${selected} && goto ${selected} || goto main_menu
 
 :ubuntu_menu
 menu Ubuntu
 item ubuntud2204  			Ubuntu Desktop 22.04
 item ubuntud2404  			Ubuntu Desktop 24.04
 item ubuntud2510			Ubuntu Desktop 25.10
-#item ubuntus2204  			Ubuntu Server 22.04
 item ubuntus2404  			Ubuntu Server 24.04
-#item ubuntus2510  			Ubuntu Server 25.10
 item back Back
 choose selected || goto main_menu
-goto ${selected}
+isset ${selected} && goto ${selected} || goto main_menu
 
 :utilities_menu
 menu Utilities
@@ -88,7 +88,7 @@ item WinPEBasicEnhanced  	WinPE Basic Enhanced
 item HirenbootCD			Hiren Boot CD v1.0.8 
 item back Back
 choose selected || goto main_menu
-goto ${selected}
+isset ${selected} && goto ${selected} || goto main_menu
 
 ############ IPXE OPTIONS ############
 :local
@@ -96,19 +96,21 @@ echo Booting from local disk...
 exit 0
 
 :shell
-echo Type 'exit' to get the back to the menu
+echo Type 'exit' to get back to the menu
 shell
-set menu-timeout 0
-set submenu-timeout 0
 goto main_menu
 
 :error
-echo Error occured, press any key to return to iPXE menu...
+echo Error occurred, press any key to return to iPXE menu...
 prompt
 goto main_menu
 
 :reboot
 reboot
+
+:change_menu
+chain ${menu}.ipxe || goto error
+goto main_menu
 
 :exit
 exit
@@ -116,22 +118,27 @@ exit
 :config
 config
 goto main_menu
-
 ############ MAIN MENU ITEMS ############
 
 
 ############ Windows
 :wds
-sanboot --no-describe ${http_srv}/iso/wds.iso 				|| goto error
+sanboot --no-describe ${http_srv}/iso/wds.iso 								|| goto error
+
+:win10newtest
+sanboot --no-describe ${http_srv}/iso/win10_subnet50_new_autotest.iso 		|| goto error
+
+:litetouchmdt
+sanboot --no-describe ${http_srv}/iso/LiteTouchPE_x64.iso 					|| goto error
 
 # :win10iso
-# sanboot --no-describe ${http_srv}/iso/windows10.iso 		|| goto error
+# sanboot --no-describe ${http_srv}/iso/windows10.iso 						|| goto error
 
 # :win11_24h2iso
-# sanboot --no-describe ${http_srv}/iso/windows11_24h2.iso 	|| goto error
+# sanboot --no-describe ${http_srv}/iso/windows11_24h2.iso 					|| goto error
 
 # :win11_25h2iso
-# sanboot --no-describe ${http_srv}/iso/windows11_25h2.iso 	|| goto error
+# sanboot --no-describe ${http_srv}/iso/windows11_25h2.iso 					|| goto error
 
 #:wds_test
 #kernel ${http_srv}/win/wimboot 
