@@ -1,0 +1,64 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        // Build with UCRT64
+        {
+            "label": "Build with UCRT64",
+            "type": "shell",
+            "command": "C:\\msys64\\ucrt64\\bin\\g++.exe",
+            "args": [
+                "-fdiagnostics-color=always",
+                "-g",
+                "${file}",
+                "-o",
+                "${workspaceFolder}\\${fileBasenameNoExtension}.exe",
+                "-m64"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c"]
+                }
+            },
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": ["relative", "${workspaceFolder}"]
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "detail": "Compile with MSYS2 UCRT64 GCC 15.2.0"
+        },
+
+        // Run in cmd
+        {
+            "label": "Run in cmd",
+            "type": "shell",
+            "command": "start",
+            "args": [
+                "cmd",
+                "/k",
+                "${workspaceFolder}\\${fileBasenameNoExtension}.exe"
+            ],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c"]
+                }
+            },
+            "dependsOn": ["Build with UCRT64"],
+            "dependsOrder": "sequence",
+            "problemMatcher": []
+        },
+
+        // Build and Run
+        {
+            "label": "Build and Run",
+            "dependsOn": ["Build with UCRT64", "Run in cmd"],
+            "dependsOrder": "sequence",
+            "problemMatcher": []
+        }
+    ]
+}

@@ -1,0 +1,30 @@
+{
+    "configurations": [
+        {
+            "name": "UCRT64",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:/msys64/ucrt64/include/**",
+                "C:/msys64/ucrt64/x86_64-w64-mingw32/include/**",
+                "C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/c++/**",
+                "C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/c++/x86_64-w64-mingw32/**"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "__GNUC__=15",
+                "__GNUC_MINOR__=2",
+                "__GNUC_PATCHLEVEL__=0"
+            ],
+            "compilerPath": "C:/msys64/ucrt64/bin/g++.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-gcc-x64",
+            "compilerArgs": [
+                "-m64"
+            ]
+        }
+    ],
+    "version": 4
+}
