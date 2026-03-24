@@ -1,0 +1,6 @@
+{
+    "C_Cpp.default.compilerPath": "c:\\msys64\\mingw64.exe",
+    "files.associations": {
+        "codecvt": "cpp"
+    }
+}
