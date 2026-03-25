@@ -2,12 +2,17 @@
     "configurations": [
         {
             "name": "UCRT64",
+            // Change "includePath" by MSYS2 command output: "gcc -v -E -x c++ -"
+            // Replace after this lines:
+            // #include "..." search starts here:
+            // #include <...> search starts here:
             "includePath": [
-                "${workspaceFolder}/**",
-                "C:/msys64/ucrt64/include/**",
-                "C:/msys64/ucrt64/x86_64-w64-mingw32/include/**",
-                "C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/c++/**",
-                "C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/c++/x86_64-w64-mingw32/**"
+                "C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../include/c++/15.2.0",
+                "C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../include/c++/15.2.0/x86_64-w64-mingw32",
+                "C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../include/c++/15.2.0/backward",
+                "C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/include",
+                "C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../include",
+                "C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/include-fixed"
             ],
             "defines": [
                 "_DEBUG",
