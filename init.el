@@ -1,4 +1,35 @@
-;;; init.el --- Emacs config -*- lexical-binding: t; -*-
+;;; init.el --- Emacs config -*- lexical-binding: t -*-
+
+;;; Commentary:
+;; Пользовательская конфигурация Emacs для ОС Windows.
+
+;;; Code:
+
+;; Ускорение загрузки
+(defvar my/default-gc-cons-threshold 16777216)
+(defvar my/default-file-name-handler-alist file-name-handler-alist)
+(setq gc-cons-threshold most-positive-fixnum
+      gc-cons-percentage 0.6
+      file-name-handler-alist nil)
+(add-hook 'emacs-startup-hook
+  (lambda ()
+    (setq gc-cons-threshold my/default-gc-cons-threshold
+          gc-cons-percentage 0.1
+          file-name-handler-alist my/default-file-name-handler-alist)))
+
+(defvar org-state)
+(defvar org-link-bracket-re)
+(defvar org-capture-templates)
+(declare-function org-in-regexp "org")
+(declare-function org-link-unescape "org")
+(declare-function org-map-entries "org")
+(declare-function org-get-todo-state "org")
+(declare-function org-current-level "org")
+(declare-function org-get-heading "org")
+(declare-function org-todo "org")
+(declare-function org-archive-subtree "org-archive")
+(declare-function org-element-property "org-element")
+(declare-function org-element-at-point "org-element")
 
 ;; ---------------------------
 ;; Основные настройки
@@ -8,7 +39,9 @@
       inhibit-startup-message t
       inhibit-startup-buffer-menu t
       initial-scratch-message nil
-      use-dialog-box nil)
+      use-dialog-box nil
+      case-fold-search t
+      completion-ignore-case t)
 
 ;; Расположение кастомного файла
 (require 'custom)
@@ -17,15 +50,231 @@
                         "Файл для сохранения пользовательских настроек, сделанных в customize.")
 
 ;; ---------------------------
-;; Пути к кастомным файлам
+;; Пользовательские функции
 ;; ---------------------------
-(use-package my-keybinds
-  :load-path "~/.config/emacs/lisp/"
-  :demand t)
+(defun my/org-insert-src-block (src-code-type)
+  "Вставить блок кода в `org-mode' для языка SRC-CODE-TYPE."
+  (interactive
+   (let ((src-code-types '("emacs-lisp" "python" "C" "sh" "C++" "latex" "org")))
+     (list (ivy-completing-read "Source code type: " src-code-types))))
+  (insert (format "#+BEGIN_SRC %s\n" src-code-type))
+  (insert "#+END_SRC\n"))
 
-(use-package my-functions
-  :load-path "~/.config/emacs/lisp/"
-  :demand t)
+(defun my/org-rename-link ()
+  "Переименовать файл, на который указывает ссылка в org."
+  (interactive)
+  (when (org-in-regexp org-link-bracket-re 1)
+    (let* ((link (org-link-unescape (match-string-no-properties 1)))
+           (filename (file-name-nondirectory link))
+           (path (file-name-directory link))
+           (newfilename (read-string (format "New name (was '%s'): " filename))))
+      (rename-file (concat path filename) (concat path newfilename))
+      (replace-match (concat path newfilename) nil nil nil 1))))
+
+;; ---------------------------
+;; Пользовательские горячие клавиши
+;; ---------------------------
+(global-set-key (kbd "<C-tab>") #'mode-line-other-buffer)
+(global-set-key (kbd "<C-S-tab>") #'mode-line-other-buffer)
+
+(global-set-key (kbd "<f9>") 'compile)
+(global-set-key (kbd "C-c e") (lambda () (interactive) (find-file user-init-file)))
+
+(defun my/open-org-dir ()
+  "Открыть папку с моими org-файлами в Dired."
+  (interactive)
+  (dired (expand-file-name "ORG" user-emacs-directory)))
+
+(global-set-key (kbd "C-c o") #'my/open-org-dir)
+(global-set-key (kbd "C-c g") 'replace-regexp)
+(global-set-key (kbd "C-c p") 'paradox-list-packages)
+(global-set-key (kbd "<f12>") 'save-buffers-kill-emacs)
+(global-set-key (kbd "<f8>") 'comment-region)
+
+;; Работа с буферами
+(global-set-key (kbd "<f4>") 'eval-buffer)
+
+;; Буфер обмена (Clipboard)
+(global-set-key (kbd "C-v") 'yank)
+(global-set-key (kbd "C-z") 'undo)
+(delete-selection-mode t)
+
+;; Сортировка
+(global-set-key (kbd "C-c C-p") 'sort-paragraphs)
+(global-set-key (kbd "C-c C-l") 'sort-lines)
+
+;; Недавние файлы
+(global-set-key (kbd "C-c C-r") 'recentf-open-files)
+
+;; Шрифт
+(global-set-key (kbd "C-c -") 'text-scale-decrease)
+(global-set-key (kbd "C-c =") 'text-scale-increase)
+
+;; Swiper
+(global-set-key (kbd "C-s") 'swiper)
+
+;; ---------------------------
+;; Дополнительные инструменты (Extras)
+;; ---------------------------
+;; Autoinsert
+(use-package autoinsert
+  :ensure t
+  :config
+  (auto-insert-mode 1)
+  (setq auto-insert-query nil)
+  (setq auto-insert-alist
+        (append '(("\\.el\\'" . [nil
+                                 ";;; %n.el --- Summary\n\n"
+                                 ";;; Commentary:\n\n"
+                                 ";;; Code:\n"
+                                 ";;; lexical-binding: t\n\n"
+                                 "(defun %n-setup ()\n"
+                                 "  \"Setup function for %n.\"\n"
+                                 "  (interactive))\n\n"
+                                 "(provide '%n)\n\n"
+                                 ";;; %n.el ends here\n"]))
+                auto-insert-alist)))
+
+;; Recentf
+(use-package recentf
+  :config
+  (setq recentf-max-saved-items 100
+        recentf-auto-cleanup 'never
+        recentf-exclude '(".cache" "COMMIT_EDITMSG" "github\\."))
+  (recentf-mode 1))
+
+;; Browse Kill Ring
+(use-package browse-kill-ring
+  :ensure t
+  :bind ("C-c y" . browse-kill-ring)
+  :custom
+  (browse-kill-ring-show-preview t))
+
+;; Пользовательский словарь
+(defvar my-dictionary-file (expand-file-name "local-dict.txt" user-emacs-directory)
+  "File to store user words.")
+
+(defvar my-dictionary-cache (make-hash-table :test 'equal))
+
+(defun my-extract-words ()
+  "Extract words from buffer."
+  (let ((words '())
+        (seen (make-hash-table :test 'equal)))
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "\\b\\([a-zA-Zа-яА-Я]+\\)\\b" nil t)
+        (let ((word (match-string-no-properties 1)))
+          (unless (or (gethash word seen)
+                      (gethash word my-dictionary-cache)
+                      (< (length word) 3))
+            (puthash word t seen)
+            (push word words)))))))
+
+(defun my-add-words-to-dictionary (words)
+  "Add new WORDS to dictionary file."
+  (when words
+    (let ((new-words '()))
+      (when (file-exists-p my-dictionary-file)
+        (with-temp-buffer
+          (insert-file-contents my-dictionary-file)
+          (dolist (word words)
+            (unless (or (search-forward word nil t)
+                        (gethash word my-dictionary-cache))
+              (push word new-words)
+              (puthash word t my-dictionary-cache)))))
+      (when new-words
+        (with-temp-buffer
+          (when (file-exists-p my-dictionary-file)
+            (insert-file-contents my-dictionary-file))
+          (dolist (word new-words)
+            (goto-char (point-max))
+            (insert word "\n"))
+          (write-region (point-min) (point-max) my-dictionary-file nil :silent))))))
+
+(defun my/load-dictionary-cache ()
+  "Load existing dictionary into cache."
+  (when (file-exists-p my-dictionary-file)
+    (with-temp-buffer
+      (insert-file-contents my-dictionary-file)
+      (goto-char (point-min))
+      (while (re-search-forward "^\\(.+\\)$" nil t)
+        (puthash (match-string-no-properties 1) t my-dictionary-cache)))))
+
+(add-hook 'after-init-hook #'my/load-dictionary-cache)
+(add-hook 'after-save-hook
+          (lambda ()
+            (when (derived-mode-p 'text-mode 'prog-mode)
+              (my-add-words-to-dictionary (my-extract-words)))))
+
+;; ---------------------------
+;; LaTeX и CDLaTeX
+;; ---------------------------
+(use-package tex
+  :ensure auctex
+  :mode ("\\.tex\\'" . latex-mode)
+  :config
+  (setq TeX-engine 'xetex
+        TeX-PDF-mode t
+        TeX-auto-save t
+        TeX-parse-self t
+        TeX-save-query nil
+        TeX-default-extension "tex"
+        TeX-command-default "LaTeX")
+  (setq TeX-source-correlate-mode t)
+  (setq TeX-source-correlate-start-server t)
+  
+  (cond
+   ((eq system-type 'gnu/linux)
+    (setq TeX-view-program-selection '((output-pdf "Evince"))))
+   ((eq system-type 'windows-nt)
+    (setq TeX-view-program-selection '((output-pdf "Sumatra"))))
+   ((eq system-type 'darwin)
+    (setq TeX-view-program-selection '((output-pdf "Preview"))))))
+
+(use-package cdlatex
+  :ensure t
+  :hook (latex-mode . turn-on-cdlatex)
+  :config
+  (setq cdlatex-math-symbol-alist
+        '((?b ("\\mathbb" "\\mathbb{}" cdlatex-position-cursor))
+          (?c ("\\mathcal" "\\mathcal{}" cdlatex-position-cursor))
+          (?v ("\\overrightarrow" "\\overrightarrow{}" cdlatex-position-cursor))
+          (?^ ("\\hat" "\\hat{}" cdlatex-position-cursor))
+          (?2 ("^2" "" nil))
+          (?3 ("^3" "" nil)))))
+
+(use-package yasnippet
+  :ensure t
+  :hook (after-init . yas-global-mode))
+
+(use-package company-math
+  :ensure t
+  :config
+  (add-to-list 'company-backends 'company-math-symbols-unicode))
+
+;; Журнал
+(defun my/get-main-journal-path ()
+  "Try to find a main-journal.tex in project or user dir."
+  (let ((candidates (list (expand-file-name "main-journal.tex" user-emacs-directory)
+                          (expand-file-name "journal/main-journal.tex" user-emacs-directory))))
+    (seq-find #'file-exists-p candidates)))
+
+(defun my/math-journal-template ()
+  "Insert math journal template at point."
+  (insert "\\section{" (format-time-string "%d-%m-%Y") "}\n\n")
+  (insert "\\subsection*{Сегодняшние размышления}\n\n")
+  (insert "\\subsection*{Решённые задачи}\n\\begin{itemize}\n\\item \n\\end{itemize}\n\n")
+  (insert "\\subsection*{Новые идеи}\n\\begin{itemize}\n\\item \n\\end{itemize}\n\n")
+  (insert "\\subsection*{Формулы и вычисления}\n\n"))
+
+(defun my/new-math-journal-entry ()
+  "Create new math journal entry file."
+  (interactive)
+  (let ((filename (format "journal-%s.tex" (format-time-string "%Y-%m-%d"))))
+    (find-file (expand-file-name filename user-emacs-directory))
+    (my/math-journal-template)))
+
+(global-set-key (kbd "C-c j") #'my/new-math-journal-entry)
 
 ;; ---------------------------
 ;; Пакетная система
@@ -47,9 +296,9 @@
 ;; ---------------------------
 ;; Шрифты
 ;; ---------------------------
-(set-fontset-font t 'unicode (font-spec :family "FiraCode Nerd Font" :size 14) nil 'prepend)
-(set-frame-font "FiraCode Nerd Font-16" t t)
-(set-fontset-font t 'cyrillic (font-spec :family "FiraCode Nerd Font" :size 22) nil 'prepend)
+(set-fontset-font t 'unicode (font-spec :family "Source Code Pro" :size 14) nil 'prepend)
+(set-frame-font "Source Code Pro-16" t t)
+(set-fontset-font t 'cyrillic (font-spec :family "Source Code Pro" :size 22) nil 'prepend)
 
 ;; ---------------------------
 ;; UI
@@ -58,6 +307,7 @@
 (tool-bar-mode -1)
 (scroll-bar-mode -1)
 (blink-cursor-mode -1)
+(setq ring-bell-function nil)
 ;(setq inhibit-startup-screen t)
 (defalias 'yes-or-no-p 'y-or-n-p)
 (setq user-full-name "Knedl"
@@ -68,17 +318,17 @@
 ;; Темы
 ;; ---------------------------
 (defun my/load-theme (theme)
+  "Отключить все активные темы и загрузить тему THEME."
   (mapc #'disable-theme custom-enabled-themes)
   (load-theme theme t))
 
 (defun my/apply-theme-based-on-time ()
+  "Применить светлую или темную тему в зависимости от времени суток."
   (let ((hour (string-to-number (format-time-string "%H"))))
     (if (>= hour 18)
         (my/load-theme 'doom-one)
       (my/load-theme 'doom-one-light))))
-
-(my/apply-theme-based-on-time)
-(run-at-time "00:00" 3600 #'my/apply-theme-based-on-time)
+(load-theme 'doom-one t)
 
 ;; ---------------------------
 ;; Время
@@ -95,30 +345,31 @@
 ;; ---------------------------
 (use-package calendar
   :defer t
+  :custom
+  (calendar-month-name-array
+   ["Январь" "Февраль" "Март" "Апрель" "Май" "Июнь"
+    "Июль" "Август" "Сентябрь" "Октябрь" "Ноябрь" "Декабрь"])
+  (calendar-day-name-array
+   ["Воскресенье" "Понедельник" "Вторник" "Среда" "Четверг" "Пятница" "Суббота"])
+  (calendar-day-abbrev-array ["Вс" "Пн" "Вт" "Ср" "Чт" "Пт" "Сб"])
+  (calendar-week-start-day 1)
+  (calendar-weekend '(0 6))
+  (calendar-month-header-function
+   (lambda (month year)
+     (format "%s %d года"
+             (aref calendar-month-name-array (1- month))
+             year)))
   :config
-  (setq calendar-month-name-array
-        ["Январь" "Февраль" "Март" "Апрель" "Май" "Июнь"
-         "Июль" "Август" "Сентябрь" "Октябрь" "Ноябрь" "Декабрь"])
-  (setq calendar-day-name-array
-        ["Воскресенье" "Понедельник" "Вторник" "Среда" "Четверг" "Пятница" "Суббота"])
-  (setq calendar-day-abbrev-array ["Вс" "Пн" "Вт" "Ср" "Чт" "Пт" "Сб"])
-  (setq calendar-week-start-day 1
-        calendar-weekend '(0 6))
   (copy-face 'font-lock-keyword-face 'calendar-weekend-header)
   (set-face-attribute 'calendar-weekend-header nil :foreground "red")
   (add-hook 'calendar-today-visible-hook 'calendar-mark-today)
   (add-hook 'calendar-today-invisible-hook 'calendar-mark-today)
-  (setq calendar-month-header-function
-        (lambda (month year)
-          (format "%s %d года"
-                  (aref calendar-month-name-array (1- month))
-                  year)))
   ;; Русские праздники
   (use-package russian-holidays
     :after calendar
-    :config
-    (setq holiday-local-holidays russian-holidays
-          calendar-holidays holiday-local-holidays)))
+    :custom
+    (holiday-local-holidays russian-holidays)
+    (calendar-holidays holiday-local-holidays)))
 
 ;; ---------------------------
 ;; Org-mode
@@ -143,10 +394,12 @@
 
   ;; Файлы и архив
   (setq org-startup-folded t
+        org-startup-indented t
+        org-hide-leading-stars t
+        org-ellipsis " ▼"
         org-support-shift-select t
         org-agenda-files (directory-files-recursively org-directory  "\\.org$")
         org-archive-location (concat org-directory "Archive.org::datetree/"))
-
   
   ;; Capture templates (C-c c d/w/m/j)
   (setq org-capture-templates
@@ -161,9 +414,9 @@
            "** TODO %?\nDEADLINE: %U")
           ("j" "Journal Entry" entry
            (file+datetree ,(concat org-directory "Journal.org"))
-           "* %?\nEntered on %U\n")))
+           "* %?\nEntered on %U\n"))))
 
-  ;; ---------------------------
+;; ---------------------------
 ;; Умное архивирование только после завершения всех подзадач
 ;; ---------------------------
 
@@ -180,7 +433,7 @@
 
 (defun my/org-archive-when-all-done ()
   "Архивировать задачу только если все подзадачи внутри неё выполнены.
-Не архивирует отдельные подзадачи."
+Эта функция не архивирует отдельные подзадачи."
   (when (and (string= org-state "DONE")
              ;; проверяем, что текущая задача не подзадача
              (= (org-current-level) 4)
@@ -191,35 +444,35 @@
     (setq org-map-continue-from (org-element-property :begin (org-element-at-point)))))
 
 ;; Убираем старый автoархив
-(remove-hook 'org-after-todo-state-change-hook #'my/org-archive-done-tasks)
+(remove-hook 'org-after-todo-state-change-hook 'my/org-archive-done-tasks)
 ;; Добавляем новый
 (add-hook 'org-after-todo-state-change-hook #'my/org-archive-when-all-done)
 
-(defun my/org-summary-todo (n-done n-not-done)
-  "Автоматически меняет состояние родителя на DONE, когда все подзадачи завершены."
-  (let (org-log-done org-log-states)
+(defun my/org-summary-todo (_n-done n-not-done)
+  "Автоматически меняет состояние родителя на DONE, когда все подзадачи завершены.
+Использует количество завершенных _N-DONE и незавершенных N-NOT-DONE подзадач."
+  (let ((org-log-done nil))
     (org-todo (if (= n-not-done 0) "DONE" "TODO"))))
 
 (add-hook 'org-after-todo-statistics-hook #'my/org-summary-todo)
 
-  
 ;; Красивые bullets
 (use-package org-bullets
-  :hook (org-mode . org-bullets-mode)))
+  :hook (org-mode . org-bullets-mode))
 
 ;; ---------------------------
 ;; UI и статус-бар
 ;; ---------------------------
 (use-package doom-modeline
   :init (doom-modeline-mode 1)
-  :config
-  (setq doom-modeline-enable-time t
-        doom-modeline-time-icon t
-        doom-modeline-bar-width 2
-        doom-modeline-major-mode-icon t
-        doom-modeline-major-mode-color-icon t
-        doom-modeline-buffer-state-icon t
-        doom-modeline-buffer-file-name-style 'relative-to-project))
+  :custom
+  (doom-modeline-enable-time t)
+  (doom-modeline-time-icon t)
+  (doom-modeline-bar-width 2)
+  (doom-modeline-major-mode-icon t)
+  (doom-modeline-major-mode-color-icon t)
+  (doom-modeline-buffer-state-icon t)
+  (doom-modeline-buffer-file-name-style 'relative-to-project))
 
 (use-package all-the-icons)
 
@@ -228,7 +481,7 @@
 (size-indication-mode t)
 (show-paren-mode t)
 (electric-pair-mode t)
-(global-hl-line-mode t)
+;; (global-hl-line-mode t) ;; Отключено по вашей просьбе (подсветка текущей строки)
 (global-visual-line-mode t)
 (savehist-mode 1)
 
@@ -263,12 +516,35 @@
 ;; LSP и автодополнение
 ;; ---------------------------
 (use-package lsp-mode
-  :hook ((js-mode js2-mode typescript-mode web-mode css-mode html-mode) . lsp)
-  :commands lsp
+  :commands (lsp lsp-deferred)
+  :hook ((python-mode . lsp-deferred)
+         (csharp-mode . lsp-deferred)
+         (js-mode . lsp-deferred)
+         (js2-mode . lsp-deferred)
+         (typescript-mode . lsp-deferred)
+         (web-mode . lsp-deferred)
+         (css-mode . lsp-deferred)
+         (html-mode . lsp-deferred))
+  :custom
+  (lsp-enable-snippet t)
+  (lsp-completion-provider :capf)
+  (lsp-headerline-breadcrumb-enable t)
+  (lsp-enable-symbol-highlighting t)
+  (lsp-signature-auto-activate t)
+  (lsp-csharp-server-path "omnisharp")
+  (lsp-csharp-server-args '("-lsp")))
+
+(use-package lsp-pyright
+  :ensure t
+  :hook (python-mode . (lambda ()
+                         (require 'lsp-pyright)
+                         (lsp-deferred))))
+
+(use-package flycheck
+  :ensure t
+  :hook (after-init . global-flycheck-mode)
   :config
-  (setq lsp-prefer-capf t
-        lsp-enable-snippet t
-        lsp-completion-provider :capf))
+  (global-flycheck-mode 1))
 
 (use-package lsp-ui
   :commands lsp-ui-mode
@@ -280,25 +556,27 @@
         lsp-ui-sideline-enable nil))
 
 (use-package company
-  :init (global-company-mode 1)
+  :hook (after-init . global-company-mode)
+  :custom
+  (company-idle-delay 0.1)
+  (company-minimum-prefix-length 1)
+  (company-tooltip-align-annotations t)
+  (company-show-quick-access t)
+  (company-tooltip-limit 14)
+  (company-require-match nil)
+  (company-dabbrev-downcase nil)
+  (company-dabbrev-ignore-case t)
   :config
-  (setq company-idle-delay 0.2
-        company-minimum-prefix-length 1
-        company-tooltip-align-annotations t
-        company-show-quick-access t
-        company-tooltip-limit 14
-        company-require-match nil
-        company-dabbrev-downcase nil
-        company-dabbrev-ignore-case t))
+  (add-to-list 'company-backends 'company-capf))
 
 (use-package company-box
   :hook (company-mode . company-box-mode)
-  :config
-  (setq company-box-show-single-candidate t
-        company-box-doc-enable t
-        company-box-icons-alist 'company-box-icons-all-the-icons
-        company-box-backends-colors nil
-        company-box-max-tooltip-width 50))
+  :custom
+  (company-box-show-single-candidate t)
+  (company-box-doc-enable t)
+  (company-box-icons-alist 'company-box-icons-all-the-icons)
+  (company-box-backends-colors nil)
+  (company-box-max-tooltip-width 50))
 
 ;; ---------------------------
 ;; Magit + Forge
@@ -308,9 +586,10 @@
   :custom
   (magit-clone-default-directory (expand-file-name "~/git/"))
   (magit-completing-read-function 'ivy-completing-read)
-  :bind (:map mode-specific-map
-              :prefix-map magit-prefix-map
-              :prefix "m"
+  :bind (("C-x g" . magit-status)
+         :map mode-specific-map
+         :prefix-map magit-prefix-map
+         :prefix "m"
               (("s" . magit-status)
                ("c" . magit-checkout)
                ("C" . magit-commit)
@@ -342,10 +621,10 @@
 
 (use-package reverse-im
   :after char-fold
+  :hook (after-init . reverse-im-mode)
   :custom
   (reverse-im-input-methods '("russian-computer"))
-  (reverse-im-read-char-advice-function #'reverse-im-read-char-exclude)
-  :config (reverse-im-mode t))
+  (reverse-im-read-char-advice-function #'reverse-im-read-char-exclude))
 
 (use-package transmission
   :bind (("C-x a t" . transmission)))
@@ -384,14 +663,13 @@
 ;; ---------------------------
 (use-package which-key
   :ensure t
+  :hook (after-init . which-key-mode)
   :config
   ;; Allow C-h to trigger which-key before it is done automatically
   (setq which-key-show-early-on-C-h t
         ;; Don't show automatically, but refresh quickly after C-h
         which-key-idle-delay 1
         which-key-idle-secondary-delay 0.5)
-  ;; Enable which-key globally
-  (which-key-mode)
   ;; Display in minibuffer (alternative: side-window-bottom/right)
   (which-key-setup-minibuffer))
 
@@ -402,8 +680,10 @@
   :ensure t
   :init
   ;; Показывать dashboard при запуске
-  (setq inhibit-startup-screen t
-        initial-buffer-choice (lambda () (get-buffer "*dashboard*")))
+  (setq inhibit-startup-screen t)
+  (setq initial-buffer-choice (lambda ()
+                                (dashboard-open)
+                                (get-buffer "*dashboard*")))
   (dashboard-setup-startup-hook)
   :config
   ;; Баннер (логотип)
@@ -451,7 +731,7 @@
   (setq auto-package-update-delete-old-versions t
         auto-package-update-interval 7
         auto-package-update-prompt-before-update t)
-  (auto-package-update-maybe))
+  (run-with-idle-timer 5 nil #'auto-package-update-maybe))
 
 (message "Config File Reloaded!")
 ;; ---------------------------
@@ -464,6 +744,9 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(custom-safe-themes
+   '("aec7b55f2a13307a55517fdf08438863d694550565dee23181d2ebd973ebd6b8"
+     default))
  '(package-selected-packages
    '(ac-math ace-jump-buffer ace-link ace-window achievements
 	     all-the-icons auctex auto-package-update bluetooth
