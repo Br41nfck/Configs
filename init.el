@@ -52,6 +52,39 @@
 ;; ---------------------------
 ;; Пользовательские функции
 ;; ---------------------------
+
+;; Eshell Configuration
+;; 1. Глобальные настройки кодировки Emacs
+(prefer-coding-system 'utf-8)
+(set-language-environment "UTF-8")
+(set-terminal-coding-system 'utf-8)
+(set-keyboard-coding-system 'utf-8)
+(set-selection-coding-system 'utf-8)
+(set-file-name-coding-system 'utf-8)
+(set-default-coding-systems 'utf-8)
+
+;; 2. Настройка для eshell
+(add-hook 'eshell-mode-hook
+          (lambda ()
+            ;; Кодировка ввода/вывода
+            (setq eshell-coding-system 'utf-8)
+            (setq coding-system-for-read 'utf-8)
+            (setq coding-system-for-write 'utf-8)
+            
+            ;; Переменные окружения для Python
+            (setenv "PYTHONIOENCODING" "utf-8")
+            (setenv "PYTHONUTF8" "1")   ; Для Python 3.7+
+            (setenv "LANG" "en_US.UTF-8")
+            (setenv "LC_ALL" "en_US.UTF-8")
+            
+            ;; Очистка и переустановка буфера
+            (when (and (buffer-live-p (current-buffer))
+                       (not (string= (buffer-name) "*eshell*")))
+              (erase-buffer))
+            
+            (message "Eshell: UTF-8 mode enabled")))
+
+
 (defun my/org-insert-src-block (src-code-type)
   "Вставить блок кода в `org-mode' для языка SRC-CODE-TYPE."
   (interactive
@@ -78,6 +111,7 @@
 (global-set-key (kbd "<C-S-tab>") #'mode-line-other-buffer)
 
 (global-set-key (kbd "<f9>") 'compile)
+(setq compilation-auto-jump-to-first-error t)
 (global-set-key (kbd "C-c e") (lambda () (interactive) (find-file user-init-file)))
 
 (defun my/open-org-dir ()
@@ -87,7 +121,11 @@
 
 (global-set-key (kbd "C-c o") #'my/open-org-dir)
 (global-set-key (kbd "C-c g") 'replace-regexp)
+
+(use-package paradox)
+(setq paradox-github-token '"<github-token>")
 (global-set-key (kbd "C-c p") 'paradox-list-packages)
+
 (global-set-key (kbd "<f12>") 'save-buffers-kill-emacs)
 (global-set-key (kbd "<f8>") 'comment-region)
 
@@ -287,11 +325,26 @@
 (setq package-enable-at-startup nil)
 (package-initialize)
 
+;; Автоматическое скачивание списков пакетов при первом запуске
+(unless package-archive-contents
+  (package-refresh-contents))
+
 (unless (package-installed-p 'use-package)
   (package-refresh-contents)
   (package-install 'use-package))
 (require 'use-package)
 (setq use-package-always-ensure t)
+
+;; Автоматическая установка всех недостающих пакетов из списка при загрузке на новом ПК
+(add-hook 'after-init-hook
+          (lambda ()
+            (when (boundp 'package-selected-packages)
+              (let ((missing-packages (seq-remove #'package-installed-p package-selected-packages)))
+                (when missing-packages
+                  (message "Скачивание и установка недостающих пакетов на новом ПК...")
+                  (package-refresh-contents)
+                  (mapc #'package-install missing-packages)
+                  (message "Все пакеты успешно установлены!"))))))
 
 ;; ---------------------------
 ;; Шрифты
@@ -366,10 +419,11 @@
   (add-hook 'calendar-today-invisible-hook 'calendar-mark-today)
   ;; Русские праздники
   (use-package russian-holidays
+    :ensure t
     :after calendar
-    :custom
-    (holiday-local-holidays russian-holidays)
-    (calendar-holidays holiday-local-holidays)))
+    :config
+    (setq holiday-local-holidays russian-holidays)
+    (setq calendar-holidays holiday-local-holidays)))
 
 ;; ---------------------------
 ;; Org-mode
@@ -415,10 +469,6 @@
           ("j" "Journal Entry" entry
            (file+datetree ,(concat org-directory "Journal.org"))
            "* %?\nEntered on %U\n"))))
-
-;; ---------------------------
-;; Умное архивирование только после завершения всех подзадач
-;; ---------------------------
 
 (defun my/org-all-subtasks-done-p ()
   "Возвращает t, если ВСЕ подзадачи текущего заголовка завершены (DONE)."
@@ -481,9 +531,11 @@
 (size-indication-mode t)
 (show-paren-mode t)
 (electric-pair-mode t)
-;; (global-hl-line-mode t) ;; Отключено по вашей просьбе (подсветка текущей строки)
+;; (global-hl-line-mode t)
 (global-visual-line-mode t)
 (savehist-mode 1)
+(setq frame-resize-pixelwise t)
+(setq window-resize-pixelwise t)
 
 ;; ---------------------------
 ;; Навигация, окна, буферы
@@ -524,13 +576,16 @@
          (typescript-mode . lsp-deferred)
          (web-mode . lsp-deferred)
          (css-mode . lsp-deferred)
-         (html-mode . lsp-deferred))
+         (html-mode . lsp-deferred)
+         (c-mode . lsp-deferred)
+         (c++-mode . lsp-deferred))
   :custom
   (lsp-enable-snippet t)
   (lsp-completion-provider :capf)
   (lsp-headerline-breadcrumb-enable t)
   (lsp-enable-symbol-highlighting t)
   (lsp-signature-auto-activate t)
+  (lsp-clients-clangd-args '("--query-driver=C:/mingw64/bin/g++.exe"))
   (lsp-csharp-server-path "omnisharp")
   (lsp-csharp-server-args '("-lsp")))
 
@@ -544,7 +599,8 @@
   :ensure t
   :hook (after-init . global-flycheck-mode)
   :config
-  (global-flycheck-mode 1))
+  (global-flycheck-mode 1)
+  (setq-default flycheck-disabled-checkers '(c/c++-clang c/c++-gcc c/c++-cppcheck)))
 
 (use-package lsp-ui
   :commands lsp-ui-mode
@@ -568,6 +624,22 @@
   (company-dabbrev-ignore-case t)
   :config
   (add-to-list 'company-backends 'company-capf))
+
+;; C/CPP Mode
+(use-package google-c-style
+  :ensure t
+  :hook (c-mode-common . google-set-c-style))
+
+(add-hook 'c++-mode-hook
+          (lambda ()
+            (when (and buffer-file-name
+                       (not (file-exists-p "Makefile"))
+                       (not (file-exists-p "makefile")))
+              (set (make-local-variable 'compile-command)
+                   (let* ((file (file-name-nondirectory buffer-file-name))
+                          (exe (file-name-sans-extension file)))
+                     (format "g++ -Wall -Wextra -g \"%s\" -o \"%s.exe\" && start \"\" cmd.exe /c \"%s.exe & pause\""
+                             file exe exe))))))
 
 (use-package company-box
   :hook (company-mode . company-box-mode)
@@ -714,14 +786,15 @@
   (setq dashboard-heading-icons '((recents   . "history")
                                   (bookmarks . "bookmark")
                                   (projects  . "rocket")
-                                  (agenda    . "calendar")))
+                                  (agenda    . "calendar"))))
 
-  ;; Поддержка `projectile` для списка проектов
-  (use-package projectile
-    :ensure t
-    :config
-    (projectile-mode +1)
-    (setq projectile-completion-system 'auto)))
+;; Поддержка `projectile` для списка проектов
+(use-package projectile
+  :ensure t
+  :config
+  (projectile-mode +1)
+  (setq projectile-completion-system 'auto)
+  (define-key projectile-mode-map (kbd "C-c p m") 'projectile-command-map))
 
 ;; ---------------------------
 ;; Авто-обновление пакетов
@@ -739,30 +812,62 @@
 ;; ---------------------------
 (provide 'init)
 ;;; init.el ends here
+
 (custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
  '(custom-safe-themes
    '("aec7b55f2a13307a55517fdf08438863d694550565dee23181d2ebd973ebd6b8"
      default))
  '(package-selected-packages
-   '(ac-math ace-jump-buffer ace-link ace-window achievements
-	     all-the-icons auctex auto-package-update bluetooth
-	     calfw-org cape cdlatex clang-format clipmon company-box
-	     company-math corfu counsel cuda-mode dashboard diminish
-	     docker docker-compose-mode dockerfile-mode doom-modeline
-	     doom-themes flycheck forge google-translate helpful
-	     highlight-numbers info-colors kind-icon lsp-ui
-	     multiple-cursors orderless org-bullets page-break-lines
-	     paradox pomidor projectile rainbow-delimiters
-	     rainbow-identifiers rainbow-mode reverse-im
-	     russian-calendar russian-holidays smartparens sudo-edit
-	     transmission web-mode yasnippet)))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- )
+   '(ac-math
+     ace-jump-buffer
+     ace-link
+     ace-window
+     achievements
+     all-the-icons
+     auctex auto-package-update
+     bluetooth
+     calfw-org
+     cape
+     cdlatex
+     clang-format
+     clipmon
+     company-box
+     company-math
+     corfu
+     counsel
+     cuda-mode
+     dashboard
+     diminish
+     docker
+     docker-compose-mode
+     dockerfile-mode
+     doom-modeline
+     doom-themes
+     flycheck
+     forge
+     google-translate
+     helpful
+     highlight-numbers
+     info-colors
+     kind-icon
+     lsp-ui
+     multiple-cursors
+     orderless
+     org-bullets
+     page-break-lines
+     paradox
+     pomidor
+     projectile
+     rainbow-delimiters
+     rainbow-identifiers
+     rainbow-mode
+     reverse-im
+     russian-calendar
+     russian-holidays
+     smartparens
+     sudo-edit
+     transmission
+     web-mode
+     yasnippet)))
+
+(custom-set-faces)
