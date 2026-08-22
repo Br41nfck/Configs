@@ -2,12 +2,14 @@
 
 ;;; Commentary:
 ;; Пользовательская конфигурация Emacs для ОС Windows.
-
+;; Package-install: all-the-icons-nerd-fonts -> M-x all-the-icons-install-fonts
+;; Package-install: nerd-icons -> M-x nerd-icons-install-icons
+;; Font install: Source-Code-Pro - https://fonts.google.com/specimen/Source+Code+Pro
 ;;; Code:
 
 
 ;; ;; Custom theme for C/C++ Coding
-;; (add-to-list 'custom-theme-load-path"C:/Users/Ilya/AppData/Roaming/.emacs.d/themes")
+;; (add-to-list 'custom-theme-load-path"C:/Users/user/AppData/Roaming/.emacs.d/themes")
 
 ;; ;;Function for C/C++
 ;; (defun apply-custom-cc-theme ()
@@ -23,6 +25,9 @@
 (defvar compilation-auto-jump-to-first-error)
 (defvar calendar-holidays)
 (defvar holiday-local-holidays)
+(defvar gnutls-algorithm-priority)
+(defvar package-selected-packages)
+(defvar custom-safe-themes)
 
 ;; Ускорение загрузки
 (defvar my/default-gc-cons-threshold 16777216)
@@ -340,10 +345,14 @@
 ;; Пакетная система
 ;; ---------------------------
 (require 'package)
+(setq gnutls-algorithm-priority "NORMAL:-VERS-TLS1.3")
+(setq package-check-signature nil)
+
 (setq package-archives
-      '(("gnu" . "https://elpa.gnu.org/packages/")
-        ("melpa" . "https://melpa.org/packages/")
-        ("org" . "https://orgmode.org/elpa/")))
+      '(("gnu"    . "https://raw.githubusercontent.com/d12frosted/elpa-mirror/master/gnu/")
+        ("nongnu" . "https://raw.githubusercontent.com/d12frosted/elpa-mirror/master/nongnu/")
+        ("melpa"  . "https://raw.githubusercontent.com/d12frosted/elpa-mirror/master/melpa/")))
+
 (setq package-enable-at-startup nil)
 (package-initialize)
 
@@ -371,6 +380,7 @@
 ;; ---------------------------
 ;; Шрифты
 ;; ---------------------------
+
 (set-fontset-font t 'unicode (font-spec :family "Source Code Pro" :size 14) nil 'prepend)
 (set-frame-font "Source Code Pro-16" t t)
 (set-fontset-font t 'cyrillic (font-spec :family "Source Code Pro" :size 22) nil 'prepend)
@@ -458,9 +468,11 @@
   :ensure t
   :init
   (setq org-directory "~/.config/emacs/ORG/")
-  :bind (("<f7>" . org-toggle-inline-images)
-         ("C-c a" . org-agenda)
-         ("C-c c" . org-capture))
+  (make-directory org-directory t)
+  :bind
+  (("<f7>" . org-toggle-inline-images)
+   ("C-c a" . org-agenda)
+   ("C-c c" . org-capture))
   :config
   (set-locale-environment "ru_RU.UTF-8")
   (setq system-time-locale "ru_RU.UTF-8"
@@ -546,10 +558,26 @@
   (doom-modeline-buffer-state-icon t)
   (doom-modeline-buffer-file-name-style 'relative-to-project))
 
-(use-package all-the-icons)
+;; All The Icons
+(use-package all-the-icons
+  :ensure t
+  :if (display-graphic-p)
+  :config
+  (when (eq system-type 'windows-nt)
+    (set-fontset-font t 'unicode (font-spec :family "all-the-icons") nil 'append)
+    (set-fontset-font t 'unicode (font-spec :family "file-icons") nil 'append)
+    (set-fontset-font t 'unicode (font-spec :family "Material Icons") nil 'append)
+    (set-fontset-font t 'unicode (font-spec :family "FontAwesome") nil 'append)
+    (set-fontset-font t 'unicode (font-spec :family "github-octicons") nil 'append)
+    (set-fontset-font t 'unicode (font-spec :family "Weather Icons") nil 'append))
 
+  (unless (member "all-the-icons" (font-family-list))
+    (message "WARNING: all-the-icons font not found! Run M-x all-the-icons-install-fonts")))
+  
 ;; Rainbow Delimiters
-(rainbow-delimiters-mode t)
+(use-package rainbow-delimiters
+  :ensure t
+  :hook (prog-mode . rainbow-delimiters-mode))
 
 (global-display-line-numbers-mode t)
 (column-number-mode t)
@@ -854,6 +882,8 @@
      ace-jump-buffer
      ace-link
      ace-window
+	 ;; AutoCompany C Language
+	 ac-clang
      achievements
      all-the-icons
      auctex auto-package-update
@@ -903,3 +933,5 @@
      yasnippet)))
 
 (custom-set-faces)
+(provide '.emacs)
+;;; .emacs ends here
