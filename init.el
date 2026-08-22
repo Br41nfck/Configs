@@ -7,7 +7,6 @@
 ;; Font install: Source-Code-Pro - https://fonts.google.com/specimen/Source+Code+Pro
 ;;; Code:
 
-
 ;; ;; Custom theme for C/C++ Coding
 ;; (add-to-list 'custom-theme-load-path"C:/Users/user/AppData/Roaming/.emacs.d/themes")
 
@@ -81,15 +80,26 @@
 ;; Пользовательские функции
 ;; ---------------------------
 
+(when (eq system-type 'windows-nt)
+  (set-selection-coding-system 'utf-8-dos)
+  (set-next-selection-coding-system 'utf-8-dos)
+  (setq w32-get-true-file-attributes t)
+  (setq shell-file-name "bash")
+  (setenv "SHELL" shell-file-name)
+  (setq explicit-shell-file-name shell-file-name))
+
+
 ;; Eshell Configuration
 ;; 1. Глобальные настройки кодировки Emacs
-(prefer-coding-system 'utf-8)
 (set-language-environment "UTF-8")
-(set-terminal-coding-system 'utf-8)
-(set-keyboard-coding-system 'utf-8)
-(set-selection-coding-system 'utf-8)
-(set-file-name-coding-system 'utf-8)
 (set-default-coding-systems 'utf-8)
+(set-buffer-file-coding-system 'utf-8-unix)
+(set-clipboard-coding-system 'utf-8)
+(set-file-name-coding-system 'utf-8)
+(set-keyboard-coding-system 'utf-8)
+(set-terminal-coding-system 'utf-8)
+(setq default-process-coding-system '(utf-8 . utf-8))
+(prefer-coding-system 'utf-8)
 
 ;; 2. Настройка для eshell
 (add-hook 'eshell-mode-hook
@@ -148,10 +158,13 @@
 (global-set-key (kbd "C-c o") #'my/open-org-dir)
 (global-set-key (kbd "C-c g") 'replace-regexp)
 
-(use-package paradox)
-(setq paradox-github-token '"<github-token>")
-(global-set-key (kbd "C-c p") 'paradox-list-packages)
-
+;; Paradox
+(use-package paradox
+  :ensure t
+  :if (display-graphic-p)
+  :config
+  (setq paradox-github-token "<github-token>")
+  (paradox-enable))
 (global-set-key (kbd "<f12>") 'save-buffers-kill-emacs)
 (global-set-key (kbd "<f8>") 'comment-region)
 
@@ -181,6 +194,38 @@
 ;; ---------------------------
 ;; Дополнительные инструменты (Extras)
 ;; ---------------------------
+
+;; Woman - W/O Man
+;; C++ Reference Files: https://github.com/jeaye/stdman
+(when (eq system-type 'windows-nt)
+  (autoload 'woman "woman" "Browse man pages" t)
+  (defalias 'man 'woman)
+  (setq woman-use-unicode t)
+  (setq woman-encoding 'utf-8)
+  (setq woman-font-family "Consolas")
+  (setq woman-manpath
+        '("C:/msys64/usr/local/share/man"
+          "C:/msys64/usr/share/man"
+          "C:/msys64/ucrt64/share/man"
+          "C:/msys64/mingw64/share/man"))
+  (when (eq system-type 'windows-nt)
+  (autoload 'woman "woman" "Browse man pages" t)
+  (defalias 'man 'woman)
+  (setq woman-use-unicode t)
+  (setq woman-encoding 'utf-8))
+  (setq woman-manpath-add-check nil)
+  (setq woman-show-log nil)
+  (setq woman-cache-filename (expand-file-name "~/.woman-cache.el"))
+  (setq woman-cache-level 2)
+  (add-hook 'emacs-startup-hook #'woman-create-cache nil t))
+  (add-hook 'woman-post-format-hook (lambda () (let ((inhibit-read-only t)) (save-excursion (goto-char (point-min)) (while (search-forward "\uF03A" nil t) (replace-match ":"))))))
+
+(defun my/cpphelp (symbol)
+  (interactive "sC++ symbol: ")
+  (let ((windows-symbol (replace-regexp-in-string ":" "\uF03A" symbol)))
+    (woman (format "%s" windows-symbol))))
+(global-set-key (kbd "C-c m a") #'my/cpphelp)
+
 ;; Autoinsert
 (use-package autoinsert
   :ensure t
@@ -308,12 +353,15 @@
           (?2 ("^2" "" nil))
           (?3 ("^3" "" nil)))))
 
+;; Yasnippet
 (use-package yasnippet
   :ensure t
   :hook (after-init . yas-global-mode))
 
+;; Company Math 
 (use-package company-math
   :ensure t
+  :if (package-installed-p 'company-math)
   :config
   (add-to-list 'company-backends 'company-math-symbols-unicode))
 
@@ -380,10 +428,9 @@
 ;; ---------------------------
 ;; Шрифты
 ;; ---------------------------
+(set-frame-font "Source Code Pro-13" t t)
+(set-fontset-font t 'cyrillic (font-spec :family "Source Code Pro") nil 'prepend)
 
-(set-fontset-font t 'unicode (font-spec :family "Source Code Pro" :size 14) nil 'prepend)
-(set-frame-font "Source Code Pro-16" t t)
-(set-fontset-font t 'cyrillic (font-spec :family "Source Code Pro" :size 22) nil 'prepend)
 
 ;; ---------------------------
 ;; UI
@@ -564,16 +611,22 @@
   :if (display-graphic-p)
   :config
   (when (eq system-type 'windows-nt)
-    (set-fontset-font t 'unicode (font-spec :family "all-the-icons") nil 'append)
-    (set-fontset-font t 'unicode (font-spec :family "file-icons") nil 'append)
-    (set-fontset-font t 'unicode (font-spec :family "Material Icons") nil 'append)
-    (set-fontset-font t 'unicode (font-spec :family "FontAwesome") nil 'append)
-    (set-fontset-font t 'unicode (font-spec :family "github-octicons") nil 'append)
-    (set-fontset-font t 'unicode (font-spec :family "Weather Icons") nil 'append))
+    (defun my/setup-safe-icon-fonts (frame)
+      (with-selected-frame frame
+        (set-fontset-font t '(#xe000 . #xf8ff) (font-spec :family "all-the-icons") nil 'prepend)
+        (set-fontset-font t '(#xe000 . #xf8ff) (font-spec :family "file-icons") nil 'append)
+        (set-fontset-font t '(#xe000 . #xf8ff) (font-spec :family "Material Icons") nil 'append)
+        (set-fontset-font t '(#xe000 . #xf8ff) (font-spec :family "FontAwesome") nil 'append)
+        (set-fontset-font t '(#xe000 . #xf8ff) (font-spec :family "github-octicons") nil 'append)
+        (set-fontset-font t '(#xe000 . #xf8ff) (font-spec :family "Weather Icons") nil 'append)))
+    (my/setup-safe-icon-fonts (selected-frame))
+    (add-hook 'after-make-frame-functions #'my/setup-safe-icon-fonts))
 
   (unless (member "all-the-icons" (font-family-list))
     (message "WARNING: all-the-icons font not found! Run M-x all-the-icons-install-fonts")))
-  
+
+
+
 ;; Rainbow Delimiters
 (use-package rainbow-delimiters
   :ensure t
@@ -627,6 +680,10 @@
 ;; ---------------------------
 ;; LSP и автодополнение
 ;; ---------------------------
+
+;; ---------------------------
+;; LSP Settings
+;; ---------------------------
 (use-package lsp-mode
   :commands (lsp lsp-deferred)
   :hook ((python-mode . lsp-deferred)
@@ -645,7 +702,14 @@
   (lsp-headerline-breadcrumb-enable t)
   (lsp-enable-symbol-highlighting t)
   (lsp-signature-auto-activate t)
-  (lsp-clients-clangd-args '("--query-driver=C:/mingw64/bin/g++.exe"))
+  (lsp-disabled-clients '(semgrep))
+  (lsp-clients-clangd-executable "C:/msys64/ucrt64/bin/clangd.exe")
+  (lsp-clients-clangd-args '("--query-driver=C:/mingw64/bin/g++.exe"
+                             "--background-index"
+                             "--clang-tidy"
+                             "--header-insertion=never"
+                             "--log=error"))
+  
   (lsp-csharp-server-path "omnisharp")
   (lsp-csharp-server-args '("-lsp")))
 
@@ -884,6 +948,7 @@
      ace-window
 	 ;; AutoCompany C Language
 	 ac-clang
+	 ac-c-headers
      achievements
      all-the-icons
      auctex auto-package-update
