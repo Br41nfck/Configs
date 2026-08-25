@@ -2,268 +2,163 @@
 
 ;;; Commentary:
 ;; Пользовательская конфигурация Emacs для ОС Windows.
-;; Package-install: all-the-icons-nerd-fonts -> M-x all-the-icons-install-fonts
-;; Package-install: nerd-icons -> M-x nerd-icons-install-icons
-;; Font install: Source-Code-Pro - https://fonts.google.com/specimen/Source+Code+Pro
+
 ;;; Code:
 
-;; ;; Custom theme for C/C++ Coding
-;; (add-to-list 'custom-theme-load-path"C:/Users/user/AppData/Roaming/.emacs.d/themes")
+;; ---------------------------
+;; 1. Базовые пути и переменные
+;; ---------------------------
+;; Важно задать user-emacs-directory до инициализации пакетов
+(setq user-emacs-directory (expand-file-name "~/.config/emacs/"))
+(setq package-user-dir (expand-file-name "elpa" user-emacs-directory))
 
-;; ;;Function for C/C++
-;; (defun apply-custom-cc-theme ()
-;;   "Apply custom-cc theme only for C/C++ buffers."
-;;   (interactive)
-;;   (load-theme 'custom-cc t))
-
-;; ;; C/C++ Mode
-;; (add-hook 'c-mode-common-hook 'apply-custom-cc-theme)
-
-;; Устранение предупреждений компилятора
+;; Устранение предупреждений компилятора для переменных, используемых до загрузки пакетов
 (defvar eshell-coding-system)
 (defvar compilation-auto-jump-to-first-error)
 (defvar calendar-holidays)
 (defvar holiday-local-holidays)
-(defvar gnutls-algorithm-priority)
-(defvar package-selected-packages)
-(defvar custom-safe-themes)
 
-;; Ускорение загрузки
+;; Ускорение загрузки (GC и file-name-handler)
 (defvar my/default-gc-cons-threshold 16777216)
 (defvar my/default-file-name-handler-alist file-name-handler-alist)
 (setq gc-cons-threshold most-positive-fixnum
       gc-cons-percentage 0.6
       file-name-handler-alist nil)
+
 (add-hook 'emacs-startup-hook
-  (lambda ()
-    (setq gc-cons-threshold my/default-gc-cons-threshold
-          gc-cons-percentage 0.1
-          file-name-handler-alist my/default-file-name-handler-alist)))
-
-(defvar org-state)
-(defvar org-link-bracket-re)
-(defvar org-capture-templates)
-(declare-function org-in-regexp "org")
-(declare-function org-link-unescape "org")
-(declare-function org-map-entries "org")
-(declare-function org-get-todo-state "org")
-(declare-function org-current-level "org")
-(declare-function org-get-heading "org")
-(declare-function org-todo "org")
-(declare-function org-archive-subtree "org-archive")
-(declare-function org-element-property "org-element")
-(declare-function org-element-at-point "org-element")
+          (lambda ()
+            (setq gc-cons-threshold my/default-gc-cons-threshold
+                  gc-cons-percentage 0.1
+                  file-name-handler-alist my/default-file-name-handler-alist)))
 
 ;; ---------------------------
-;; Основные настройки
+;; 2. Пакетная система
 ;; ---------------------------
-(setq user-emacs-directory "~/.config/emacs/"
-      package-user-dir (expand-file-name "elpa" user-emacs-directory)
-      inhibit-startup-message t
+(require 'package)
+(setq package-archives
+      '(("gnu" . "https://elpa.gnu.org/packages/")
+        ("melpa" . "https://melpa.org/packages/")
+        ("org" . "https://orgmode.org/elpa/")))
+(setq package-enable-at-startup nil)
+(package-initialize)
+
+(unless package-archive-contents
+  (package-refresh-contents))
+
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
+
+(require 'use-package)
+(setq use-package-always-ensure t)
+
+;; Автоматическая установка недостающих пакетов
+(require 'seq)
+(add-hook 'after-init-hook
+          (lambda ()
+            (when (boundp 'package-selected-packages)
+              (let ((missing-packages (seq-remove #'package-installed-p package-selected-packages)))
+                (when missing-packages
+                  (message "Скачивание и установка недостающих пакетов на новом ПК...")
+                  (package-refresh-contents)
+                  (mapc #'package-install missing-packages)
+                  (message "Все пакеты успешно установлены!"))))))
+
+;; Настройка файла для custom-настроек
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
+(when (file-exists-p custom-file)
+  (load custom-file))
+
+;; ---------------------------
+;; 3. Основные настройки
+;; ---------------------------
+(setq inhibit-startup-message t
       inhibit-startup-buffer-menu t
       initial-scratch-message nil
       use-dialog-box nil
       case-fold-search t
-      completion-ignore-case t)
+      completion-ignore-case t
+      default-directory "D:/Projects/") ;; Windows-путь
 
-;; Tabulation
+;; Tabulation: indent-tabs-mode - это логическая переменная (t или nil), а не число!
 (setq-default tab-width 4)
-(setq-default indent-tabs-mode 4)
-
-;; Расположение кастомного файла
-(require 'custom)
-(customize-set-variable 'custom-file
-                        (expand-file-name "init.el" user-emacs-directory)
-                        "Файл для сохранения пользовательских настроек, сделанных в customize.")
+(setq-default indent-tabs-mode nil) 
 
 ;; ---------------------------
-;; Пользовательские функции
+;; 4. Кодировки и Eshell
 ;; ---------------------------
-
-(when (eq system-type 'windows-nt)
-  (set-selection-coding-system 'utf-8-dos)
-  (set-next-selection-coding-system 'utf-8-dos)
-  (setq w32-get-true-file-attributes t)
-  (setq shell-file-name "bash")
-  (setenv "SHELL" shell-file-name)
-  (setq explicit-shell-file-name shell-file-name))
-
-
-;; Eshell Configuration
-;; 1. Глобальные настройки кодировки Emacs
+(prefer-coding-system 'utf-8-unix)
 (set-language-environment "UTF-8")
-(set-default-coding-systems 'utf-8)
-(set-buffer-file-coding-system 'utf-8-unix)
-(set-clipboard-coding-system 'utf-8)
-(set-file-name-coding-system 'utf-8)
-(set-keyboard-coding-system 'utf-8)
-(set-terminal-coding-system 'utf-8)
-(setq default-process-coding-system '(utf-8 . utf-8))
-(prefer-coding-system 'utf-8)
+(set-terminal-coding-system 'utf-8-unix)
+(set-keyboard-coding-system 'utf-8-unix)
+(set-selection-coding-system 'utf-8-unix)
+(set-file-name-coding-system 'utf-8-unix)
+(set-default-coding-systems 'utf-8-unix)
 
-;; 2. Настройка для eshell
 (add-hook 'eshell-mode-hook
           (lambda ()
-            ;; Кодировка ввода/вывода
-            (setq eshell-coding-system 'utf-8)
-            (setq coding-system-for-read 'utf-8)
-            (setq coding-system-for-write 'utf-8)
+            (setq eshell-coding-system 'utf-8-unix
+                  coding-system-for-read 'utf-8-unix
+                  coding-system-for-write 'utf-8-unix)
             ;; Переменные окружения для Python
             (setenv "PYTHONIOENCODING" "utf-8")
-            (setenv "PYTHONUTF8" "1")   ; Для Python 3.7+
+            (setenv "PYTHONUTF8" "1")
             (setenv "LANG" "en_US.UTF-8")
             (setenv "LC_ALL" "en_US.UTF-8")
-            
-            ;; Очистка и переустановка буфера
-            (when (and (buffer-live-p (current-buffer))
-                       (not (string= (buffer-name) "*eshell*")))
-              (erase-buffer))
-            
             (message "Eshell: UTF-8 mode enabled")))
 
+;; ---------------------------
+;; 5. Пользовательские функции
+;; ---------------------------
 (defun my/org-insert-src-block (src-code-type)
   "Вставить блок кода в `org-mode' для языка SRC-CODE-TYPE."
   (interactive
    (let ((src-code-types '("emacs-lisp" "python" "C" "sh" "C++" "latex" "org")))
-     (list (ivy-completing-read "Source code type: " src-code-types))))
+     (list (completing-read "Source code type: " src-code-types)))) ; Заменено ivy-completing-read на универсальный completing-read
   (insert (format "#+BEGIN_SRC %s\n" src-code-type))
   (insert "#+END_SRC\n"))
 
-(defun my/org-rename-link ()
-  "Переименовать файл, на который указывает ссылка в org."
-  (interactive)
-  (when (org-in-regexp org-link-bracket-re 1)
-    (let* ((link (org-link-unescape (match-string-no-properties 1)))
-           (filename (file-name-nondirectory link))
-           (path (file-name-directory link))
-           (newfilename (read-string (format "New name (was '%s'): " filename))))
-      (rename-file (concat path filename) (concat path newfilename))
-      (replace-match (concat path newfilename) nil nil nil 1))))
-
-;; ---------------------------
-;; Пользовательские горячие клавиши
-;; ---------------------------
-(global-set-key (kbd "<C-tab>") #'mode-line-other-buffer)
-(global-set-key (kbd "<C-S-tab>") #'mode-line-other-buffer)
-
-(global-set-key (kbd "<f9>") 'compile)
-(setq compilation-auto-jump-to-first-error t)
-(global-set-key (kbd "C-c e") (lambda () (interactive) (find-file user-init-file)))
+(with-eval-after-load 'org
+  (defun my/org-rename-link ()
+    "Переименовать файл, на который указывает ссылка в org."
+    (interactive)
+    (when (org-in-regexp org-link-bracket-re 1)
+      (let* ((link (org-link-unescape (match-string-no-properties 1)))
+             (filename (file-name-nondirectory link))
+             (path (file-name-directory link))
+             (newfilename (read-string (format "New name (was '%s'): " filename))))
+        (rename-file (concat path filename) (concat path newfilename))
+        (replace-match (concat path newfilename) nil nil nil 1)))))
 
 (defun my/open-org-dir ()
   "Открыть папку с моими org-файлами в Dired."
   (interactive)
   (dired (expand-file-name "ORG" user-emacs-directory)))
 
-(global-set-key (kbd "C-c o") #'my/open-org-dir)
-(global-set-key (kbd "C-c g") 'replace-regexp)
+(defun my/get-main-journal-path ()
+  "Try to find a main-journal.tex in project or user dir."
+  (let ((candidates (list (expand-file-name "main-journal.tex" user-emacs-directory)
+                          (expand-file-name "journal/main-journal.tex" user-emacs-directory))))
+    (seq-find #'file-exists-p candidates)))
 
-;; Paradox
-(use-package paradox
-  :ensure t
-  :if (display-graphic-p)
-  :config
-  (setq paradox-github-token "<github-token>")
-  (paradox-enable))
-(global-set-key (kbd "<f12>") 'save-buffers-kill-emacs)
-(global-set-key (kbd "<f8>") 'comment-region)
+(defun my/math-journal-template ()
+  "Insert math journal template at point."
+  (insert "\\section{" (format-time-string "%d-%m-%Y") "}\n\n")
+  (insert "\\subsection*{Сегодняшние размышления}\n\n")
+  (insert "\\subsection*{Решённые задачи}\n\\begin{itemize}\n\\item \n\\end{itemize}\n\n")
+  (insert "\\subsection*{Новые идеи}\n\\begin{itemize}\n\\item \n\\end{itemize}\n\n")
+  (insert "\\subsection*{Формулы и вычисления}\n\n"))
 
-;; Работа с буферами
-(global-set-key (kbd "<f4>") 'eval-buffer)
+(defun my/new-math-journal-entry ()
+  "Create new math journal entry file."
+  (interactive)
+  (let ((filename (format "journal-%s.tex" (format-time-string "%Y-%m-%d"))))
+    (find-file (expand-file-name filename user-emacs-directory))
+    (my/math-journal-template)))
 
-;; Буфер обмена (Clipboard)
-(global-set-key (kbd "C-v") 'yank)
-(global-set-key (kbd "C-z") 'undo)
-(delete-selection-mode t)
-
-;; Сортировка
-(global-set-key (kbd "C-c C-p") 'sort-paragraphs)
-(global-set-key (kbd "C-c C-l") 'sort-lines)
-
-;; Недавние файлы
-(global-set-key (kbd "C-c C-r") 'recentf-open-files)
-
-;; Шрифт
-(global-set-key (kbd "C-c -") 'text-scale-decrease)
-(global-set-key (kbd "C-c =") 'text-scale-increase)
-
-;; Swiper
-(global-set-key (kbd "C-s") 'swiper)
-(global-set-key (kbd "C-c w") 'whitespace-mode)
-
-;; ---------------------------
-;; Дополнительные инструменты (Extras)
-;; ---------------------------
-
-;; Woman - W/O Man
-;; C++ Reference Files: https://github.com/jeaye/stdman
-(when (eq system-type 'windows-nt)
-  (autoload 'woman "woman" "Browse man pages" t)
-  (defalias 'man 'woman)
-  (setq woman-use-unicode t)
-  (setq woman-encoding 'utf-8)
-  (setq woman-font-family "Consolas")
-  (setq woman-manpath
-        '("C:/msys64/usr/local/share/man"
-          "C:/msys64/usr/share/man"
-          "C:/msys64/ucrt64/share/man"
-          "C:/msys64/mingw64/share/man"))
-  (when (eq system-type 'windows-nt)
-  (autoload 'woman "woman" "Browse man pages" t)
-  (defalias 'man 'woman)
-  (setq woman-use-unicode t)
-  (setq woman-encoding 'utf-8))
-  (setq woman-manpath-add-check nil)
-  (setq woman-show-log nil)
-  (setq woman-cache-filename (expand-file-name "~/.woman-cache.el"))
-  (setq woman-cache-level 2)
-  (add-hook 'emacs-startup-hook #'woman-create-cache nil t))
-  (add-hook 'woman-post-format-hook (lambda () (let ((inhibit-read-only t)) (save-excursion (goto-char (point-min)) (while (search-forward "\uF03A" nil t) (replace-match ":"))))))
-
-(defun my/cpphelp (symbol)
-  (interactive "sC++ symbol: ")
-  (let ((windows-symbol (replace-regexp-in-string ":" "\uF03A" symbol)))
-    (woman (format "%s" windows-symbol))))
-(global-set-key (kbd "C-c m a") #'my/cpphelp)
-
-;; Autoinsert
-(use-package autoinsert
-  :ensure t
-  :config
-  (auto-insert-mode 1)
-  (setq auto-insert-query nil)
-  (setq auto-insert-alist
-        (append '(("\\.el\\'" . [nil
-                                 ";;; %n.el --- Summary\n\n"
-                                 ";;; Commentary:\n\n"
-                                 ";;; Code:\n"
-                                 ";;; lexical-binding: t\n\n"
-                                 "(defun %n-setup ()\n"
-                                 "  \"Setup function for %n.\"\n"
-                                 "  (interactive))\n\n"
-                                 "(provide '%n)\n\n"
-                                 ";;; %n.el ends here\n"]))
-                auto-insert-alist)))
-
-;; Recentf
-(use-package recentf
-  :config
-  (setq recentf-max-saved-items 100
-        recentf-auto-cleanup 'never
-        recentf-exclude '(".cache" "COMMIT_EDITMSG" "github\\."))
-  (recentf-mode 1))
-
-;; Browse Kill Ring
-(use-package browse-kill-ring
-  :ensure t
-  :bind ("C-c y" . browse-kill-ring)
-  :custom
-  (browse-kill-ring-show-preview t))
-
-;; Пользовательский словарь
+;; Словарь
 (defvar my-dictionary-file (expand-file-name "local-dict.txt" user-emacs-directory)
   "File to store user words.")
-
 (defvar my-dictionary-cache (make-hash-table :test 'equal))
 
 (defun my-extract-words ()
@@ -272,7 +167,7 @@
         (seen (make-hash-table :test 'equal)))
     (save-excursion
       (goto-char (point-min))
-      (while (re-search-forward "\\b\\([a-zA-Zа-яА-Я]+\\)\\b" nil t)
+      (while (re-search-forward "\\<\\([a-zA-Zа-яА-ЯёЁ]+\\)\\>" nil t)
         (let ((word (match-string-no-properties 1)))
           (unless (or (gethash word seen)
                       (gethash word my-dictionary-cache)
@@ -317,8 +212,71 @@
               (my-add-words-to-dictionary (my-extract-words)))))
 
 ;; ---------------------------
-;; LaTeX и CDLaTeX
+;; 6. Горячие клавиши
 ;; ---------------------------
+(global-set-key (kbd "<C-tab>") #'next-buffer)
+(global-set-key (kbd "<C-S-tab>") #'previous-buffer)
+
+(global-set-key (kbd "<f9>") #'compile)
+(setq compilation-auto-jump-to-first-error t)
+(global-set-key (kbd "C-c e") (lambda () (interactive) (find-file user-init-file)))
+(global-set-key (kbd "C-c o") #'my/open-org-dir)
+(global-set-key (kbd "C-c g") #'query-replace-regexp)
+(global-set-key (kbd "C-c p") #'paradox-list-packages)
+(global-set-key (kbd "<f12>") #'save-buffers-kill-emacs)
+(global-set-key (kbd "<f8>") #'comment-dwim)
+(global-set-key (kbd "<f4>") #'eval-buffer)
+(global-set-key (kbd "C-c C-r") #'recentf-open-files)
+(global-set-key (kbd "C-c -") #'text-scale-decrease)
+(global-set-key (kbd "C-c =") #'text-scale-increase)
+(global-set-key (kbd "C-s") #'swiper)
+(global-set-key (kbd "C-c w") #'whitespace-mode)
+(global-set-key (kbd "C-c j") #'my/new-math-journal-entry)
+
+(cua-selection-mode 1) 
+
+;; ---------------------------
+;; 7. Конфигурация пакетов (use-package)
+;; ---------------------------
+(use-package drag-stuff
+  :config
+  (drag-stuff-mode 1)
+  (global-set-key (kbd "M-<up>") #'drag-stuff-up)
+  (global-set-key (kbd "M-<down>") #'drag-stuff-down))
+
+(use-package paradox
+  :config
+  (setq paradox-github-token "<github-token>"))
+
+(use-package autoinsert
+  :config
+  (auto-insert-mode 1)
+  (setq auto-insert-query nil)
+  (setq auto-insert-alist
+        (append '(("\\.el\\'" . [nil
+                                 ";;; %n.el --- Summary\n\n"
+                                 ";;; Commentary:\n\n"
+                                 ";;; Code:\n"
+                                 ";;; lexical-binding: t\n\n"
+                                 "(defun %n-setup ()\n"
+                                 "  \"Setup function for %n.\"\n"
+                                 "  (interactive))\n\n"
+                                 "(provide '%n)\n\n"
+                                 ";;; %n.el ends here\n"]))
+                auto-insert-alist)))
+
+(use-package recentf
+  :config
+  (setq recentf-max-saved-items 100
+        recentf-auto-cleanup 'never
+        recentf-exclude '(".cache" "COMMIT_EDITMSG" "github\\."))
+  (recentf-mode 1))
+
+(use-package browse-kill-ring
+  :bind (("C-c y" . browse-kill-ring))
+  :custom
+  (browse-kill-ring-show-preview t))
+
 (use-package tex
   :ensure auctex
   :mode ("\\.tex\\'" . latex-mode)
@@ -329,10 +287,9 @@
         TeX-parse-self t
         TeX-save-query nil
         TeX-default-extension "tex"
-        TeX-command-default "LaTeX")
-  (setq TeX-source-correlate-mode t)
-  (setq TeX-source-correlate-start-server t)
-  
+        TeX-command-default "LaTeX"
+        TeX-source-correlate-mode t
+        TeX-source-correlate-start-server t)
   (cond
    ((eq system-type 'gnu/linux)
     (setq TeX-view-program-selection '((output-pdf "Evince"))))
@@ -342,7 +299,6 @@
     (setq TeX-view-program-selection '((output-pdf "Preview"))))))
 
 (use-package cdlatex
-  :ensure t
   :hook (latex-mode . turn-on-cdlatex)
   :config
   (setq cdlatex-math-symbol-alist
@@ -353,102 +309,98 @@
           (?2 ("^2" "" nil))
           (?3 ("^3" "" nil)))))
 
-;; Yasnippet
 (use-package yasnippet
-  :ensure t
   :hook (after-init . yas-global-mode))
 
-;; Company Math 
 (use-package company-math
-  :ensure t
-  :if (package-installed-p 'company-math)
   :config
   (add-to-list 'company-backends 'company-math-symbols-unicode))
 
-;; Журнал
-(defun my/get-main-journal-path ()
-  "Try to find a main-journal.tex in project or user dir."
-  (let ((candidates (list (expand-file-name "main-journal.tex" user-emacs-directory)
-                          (expand-file-name "journal/main-journal.tex" user-emacs-directory))))
-    (seq-find #'file-exists-p candidates)))
+(use-package org
+  :init
+  (setq org-directory (expand-file-name "ORG" user-emacs-directory))
+  :bind (("<f7>" . org-toggle-inline-images)
+         ("C-c a" . org-agenda)
+         ("C-c c" . org-capture))
+  :config
+  (set-locale-environment "ru_RU.UTF-8")
+  (setq system-time-locale "ru_RU.UTF-8"
+        org-display-custom-times t
+        org-time-stamp-custom-formats '("<%d-%m-%Y %a %H:%M:%S>" . "<%d-%m-%Y %a %H:%M:%S>")
+        org-log-done 'time
+        org-startup-folded t
+        org-startup-indented t
+        org-hide-leading-stars t
+        org-ellipsis " ▼"
+        org-support-shift-select t
+        org-agenda-files (directory-files-recursively org-directory "\\.org$")
+        org-archive-location (concat org-directory "Archive.org::datetree/"))
+  
+  (setq org-capture-templates
+        `(("d" "Daily task" entry
+           (file+datetree ,(concat org-directory "Daily.org"))
+           "* TODO %?\nSCHEDULED: %U\n")
+          ("w" "Weekly Task" entry
+           (file+headline ,(concat org-directory "Weekly.org") "Inbox")
+           "** TODO %?\nDEADLINE: %U")
+          ("m" "Monthly Task" entry
+           (file+headline ,(concat org-directory "Monthly.org") "Inbox")
+           "** TODO %?\nDEADLINE: %U")
+          ("j" "Journal Entry" entry
+           (file+datetree ,(concat org-directory "Journal.org"))
+           "* %?\nEntered on %U\n")))
 
-(defun my/math-journal-template ()
-  "Insert math journal template at point."
-  (insert "\\section{" (format-time-string "%d-%m-%Y") "}\n\n")
-  (insert "\\subsection*{Сегодняшние размышления}\n\n")
-  (insert "\\subsection*{Решённые задачи}\n\\begin{itemize}\n\\item \n\\end{itemize}\n\n")
-  (insert "\\subsection*{Новые идеи}\n\\begin{itemize}\n\\item \n\\end{itemize}\n\n")
-  (insert "\\subsection*{Формулы и вычисления}\n\n"))
+  (defun my/org-all-subtasks-done-p ()
+    "Возвращает t, если ВСЕ подзадачи текущего заголовка завершены (DONE)."
+    (let ((all-done t))
+      (org-map-entries
+       (lambda ()
+         (let ((state (org-get-todo-state)))
+           (when (and state (not (string= state "DONE")))
+             (setq all-done nil))))
+       nil 'tree)
+      all-done))
 
-(defun my/new-math-journal-entry ()
-  "Create new math journal entry file."
-  (interactive)
-  (let ((filename (format "journal-%s.tex" (format-time-string "%Y-%m-%d"))))
-    (find-file (expand-file-name filename user-emacs-directory))
-    (my/math-journal-template)))
+  (defun my/org-archive-when-all-done ()
+    "Архивировать задачу только если все подзадачи внутри неё выполнены."
+    (when (and (string= org-state "DONE")
+               (= (org-current-level) 4)
+               (my/org-all-subtasks-done-p))
+      (message "Все подзадачи выполнены — архивирую %s" (org-get-heading t t t t))
+      (org-archive-subtree)
+      (setq org-map-continue-from (org-element-property :begin (org-element-at-point)))))
 
-(global-set-key (kbd "C-c j") #'my/new-math-journal-entry)
+  (remove-hook 'org-after-todo-state-change-hook 'my/org-archive-done-tasks)
+  (add-hook 'org-after-todo-state-change-hook #'my/org-archive-when-all-done)
 
-;; ---------------------------
-;; Пакетная система
-;; ---------------------------
-(require 'package)
-(setq gnutls-algorithm-priority "NORMAL:-VERS-TLS1.3")
-(setq package-check-signature nil)
+  (defun my/org-summary-todo (_n-done n-not-done)
+    "Автоматически меняет состояние родителя на DONE, когда все подзадачи завершены."
+    (let ((org-log-done nil))
+      (org-todo (if (= n-not-done 0) "DONE" "TODO"))))
 
-(setq package-archives
-      '(("gnu"    . "https://raw.githubusercontent.com/d12frosted/elpa-mirror/master/gnu/")
-        ("nongnu" . "https://raw.githubusercontent.com/d12frosted/elpa-mirror/master/nongnu/")
-        ("melpa"  . "https://raw.githubusercontent.com/d12frosted/elpa-mirror/master/melpa/")))
+  (add-hook 'org-after-todo-statistics-hook #'my/org-summary-todo))
 
-(setq package-enable-at-startup nil)
-(package-initialize)
+(use-package org-bullets
+  :hook (org-mode . org-bullets-mode))
 
-;; Автоматическое скачивание списков пакетов при первом запуске
-(unless package-archive-contents
-  (package-refresh-contents))
-
-(unless (package-installed-p 'use-package)
-  (package-refresh-contents)
-  (package-install 'use-package))
-(require 'use-package)
-(setq use-package-always-ensure t)
-
-;; Автоматическая установка всех недостающих пакетов из списка при загрузке на новом ПК
-(add-hook 'after-init-hook
-          (lambda ()
-            (when (boundp 'package-selected-packages)
-              (let ((missing-packages (seq-remove #'package-installed-p package-selected-packages)))
-                (when missing-packages
-                  (message "Скачивание и установка недостающих пакетов на новом ПК...")
-                  (package-refresh-contents)
-                  (mapc #'package-install missing-packages)
-                  (message "Все пакеты успешно установлены!"))))))
-
-;; ---------------------------
 ;; Шрифты
-;; ---------------------------
-(set-frame-font "Source Code Pro-13" t t)
-(set-fontset-font t 'cyrillic (font-spec :family "Source Code Pro") nil 'prepend)
+(when (member "Source Code Pro" (font-family-list))
+  (set-fontset-font t 'unicode (font-spec :family "Source Code Pro" :size 14) nil 'prepend)
+  (set-frame-font "Source Code Pro-16" t t)
+  (set-fontset-font t 'cyrillic (font-spec :family "Source Code Pro" :size 22) nil 'prepend))
 
-
-;; ---------------------------
 ;; UI
-;; ---------------------------
 (menu-bar-mode -1)
 (tool-bar-mode -1)
 (scroll-bar-mode -1)
 (blink-cursor-mode -1)
 (setq ring-bell-function 'ignore)
-;(setq inhibit-startup-screen t)
 (defalias 'yes-or-no-p 'y-or-n-p)
 (setq user-full-name "Knedl"
       user-login-name "Knedl"
       user-mail-address "georgyinjapan3@gmail.com")
 
-;; ---------------------------
 ;; Темы
-;; ---------------------------
 (defun my/load-theme (theme)
   "Отключить все активные темы и загрузить тему THEME."
   (mapc #'disable-theme custom-enabled-themes)
@@ -458,13 +410,11 @@
   "Применить светлую или темную тему в зависимости от времени суток."
   (let ((hour (string-to-number (format-time-string "%H"))))
     (if (>= hour 18)
-        (my/load-theme 'github-dark-dimmed)
+        (my/load-theme 'gruber-darker)
       (my/load-theme 'doom-one-light))))
-(load-theme 'doom-one t)
+(my/load-theme 'gruber-darker)
 
-;; ---------------------------
 ;; Время
-;; ---------------------------
 (use-package time
   :custom
   (display-time-default-load-average nil)
@@ -472,9 +422,7 @@
   :config
   (display-time-mode t))
 
-;; ---------------------------
 ;; Календарь
-;; ---------------------------
 (use-package calendar
   :defer t
   :custom
@@ -496,104 +444,13 @@
   (set-face-attribute 'calendar-weekend-header nil :foreground "red")
   (add-hook 'calendar-today-visible-hook 'calendar-mark-today)
   (add-hook 'calendar-today-invisible-hook 'calendar-mark-today)
-  ;; Русские праздники
   (use-package russian-holidays
-    :ensure t
     :after calendar
     :config
     (setq holiday-local-holidays russian-holidays)
     (setq calendar-holidays holiday-local-holidays)))
 
-;; ---------------------------
-;; Org-mode
-;; ---------------------------
-(setq diary-file (expand-file-name "~/.config/emacs/diary"))
-(unless (file-exists-p diary-file)
-  (with-temp-buffer (write-file diary-file)))
-
-(use-package org
-  :ensure t
-  :init
-  (setq org-directory "~/.config/emacs/ORG/")
-  (make-directory org-directory t)
-  :bind
-  (("<f7>" . org-toggle-inline-images)
-   ("C-c a" . org-agenda)
-   ("C-c c" . org-capture))
-  :config
-  (set-locale-environment "ru_RU.UTF-8")
-  (setq system-time-locale "ru_RU.UTF-8"
-        org-display-custom-times t
-        org-time-stamp-custom-formats '("<%d-%m-%Y %a %H:%M:%S>" . "<%d-%m-%Y %a %H:%M:%S>")
-        org-log-done 'time)
-
-  ;; Файлы и архив
-  (setq org-startup-folded t
-        org-startup-indented t
-        org-hide-leading-stars t
-        org-ellipsis " ▼"
-        org-support-shift-select t
-        org-agenda-files (directory-files-recursively org-directory  "\\.org$")
-        org-archive-location (concat org-directory "Archive.org::datetree/"))
-  
-  ;; Capture templates (C-c c d/w/m/j)
-  (setq org-capture-templates
-        `(("d" "Daily task" entry
-           (file+datetree ,(concat org-directory "Daily.org"))
-           "* TODO %?\nSCHEDULED: %U\n")
-          ("w" "Weekly Task" entry
-           (file+headline ,(concat org-directory "Weekly.org") "Inbox")
-           "** TODO %?\nDEADLINE: %U")
-          ("m" "Monthly Task" entry
-           (file+headline ,(concat org-directory "Monthly.org") "Inbox")
-           "** TODO %?\nDEADLINE: %U")
-          ("j" "Journal Entry" entry
-           (file+datetree ,(concat org-directory "Journal.org"))
-           "* %?\nEntered on %U\n"))))
-
-(defun my/org-all-subtasks-done-p ()
-  "Возвращает t, если ВСЕ подзадачи текущего заголовка завершены (DONE)."
-  (let ((all-done t))
-    (org-map-entries
-     (lambda ()
-       (let ((state (org-get-todo-state)))
-         (when (and state (not (string= state "DONE")))
-           (setq all-done nil))))
-     nil 'tree)
-    all-done))
-
-(defun my/org-archive-when-all-done ()
-  "Архивировать задачу только если все подзадачи внутри неё выполнены.
-Эта функция не архивирует отдельные подзадачи."
-  (when (and (string= org-state "DONE")
-             ;; проверяем, что текущая задача не подзадача
-             (= (org-current-level) 4)
-             ;; и что внутри неё все дочерние задачи DONE
-             (my/org-all-subtasks-done-p))
-    (message "Все подзадачи выполнены — архивирую %s" (org-get-heading t t t t))
-    (org-archive-subtree)
-    (setq org-map-continue-from (org-element-property :begin (org-element-at-point)))))
-
-;; Убираем старый автoархив
-(remove-hook 'org-after-todo-state-change-hook 'my/org-archive-done-tasks)
-;; Добавляем новый
-(add-hook 'org-after-todo-state-change-hook #'my/org-archive-when-all-done)
-
-(defun my/org-summary-todo (_n-done n-not-done)
-  "Автоматически меняет состояние родителя на DONE, когда все подзадачи завершены.
-Использует количество завершенных _N-DONE и незавершенных N-NOT-DONE подзадач."
-  (let ((org-log-done nil))
-    (org-todo (if (= n-not-done 0) "DONE" "TODO"))))
-
-(add-hook 'org-after-todo-statistics-hook #'my/org-summary-todo)
-
-;; Красивые bullets
-(use-package org-bullets
-  :hook (org-mode . org-bullets-mode))
-
-;; ---------------------------
 ;; UI и статус-бар
-;; ---------------------------
 (use-package doom-modeline
   :init (doom-modeline-mode 1)
   :custom
@@ -605,59 +462,29 @@
   (doom-modeline-buffer-state-icon t)
   (doom-modeline-buffer-file-name-style 'relative-to-project))
 
-;; All The Icons
-(use-package all-the-icons
-  :ensure t
-  :if (display-graphic-p)
-  :config
-  (when (eq system-type 'windows-nt)
-    (defun my/setup-safe-icon-fonts (frame)
-      (with-selected-frame frame
-        (set-fontset-font t '(#xe000 . #xf8ff) (font-spec :family "all-the-icons") nil 'prepend)
-        (set-fontset-font t '(#xe000 . #xf8ff) (font-spec :family "file-icons") nil 'append)
-        (set-fontset-font t '(#xe000 . #xf8ff) (font-spec :family "Material Icons") nil 'append)
-        (set-fontset-font t '(#xe000 . #xf8ff) (font-spec :family "FontAwesome") nil 'append)
-        (set-fontset-font t '(#xe000 . #xf8ff) (font-spec :family "github-octicons") nil 'append)
-        (set-fontset-font t '(#xe000 . #xf8ff) (font-spec :family "Weather Icons") nil 'append)))
-    (my/setup-safe-icon-fonts (selected-frame))
-    (add-hook 'after-make-frame-functions #'my/setup-safe-icon-fonts))
+(use-package all-the-icons)
 
-  (unless (member "all-the-icons" (font-family-list))
-    (message "WARNING: all-the-icons font not found! Run M-x all-the-icons-install-fonts")))
-
-
-
-;; Rainbow Delimiters
-(use-package rainbow-delimiters
-  :ensure t
-  :hook (prog-mode . rainbow-delimiters-mode))
+(add-hook 'prog-mode-hook #'rainbow-delimiters-mode) ;; Правильный способ включения глобально
 
 (global-display-line-numbers-mode t)
 (column-number-mode t)
 (size-indication-mode t)
 (show-paren-mode t)
 (electric-pair-mode t)
-;; (global-hl-line-mode t)
 (global-visual-line-mode t)
 (savehist-mode 1)
 (setq frame-resize-pixelwise t)
 (setq window-resize-pixelwise t)
-
-;; ---------------------------
 ;; Навигация, окна, буферы
-;; ---------------------------
 (use-package ace-window
-  :ensure t
   :custom (aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l)
                    aw-scope 'frame)
   :bind ("M-o" . ace-window))
 
 (use-package ace-jump-buffer
-  :ensure t
   :bind (:map goto-map ("b" . ace-jump-buffer)))
 
 (use-package ibuffer
-  :ensure nil
   :bind ("C-x C-b" . my/ibuffer-fullscreen)
   :config
   (defun my/ibuffer-fullscreen ()
@@ -665,7 +492,6 @@
     (interactive)
     (ibuffer)
     (delete-other-windows))
-
   (setq ibuffer-default-sorting-mode 'recency
         ibuffer-show-empty-filter-groups nil
         ibuffer-saved-filter-groups
@@ -673,17 +499,11 @@
            ("Org" (mode . org-mode))
            ("Programming C/C++" (or (mode . c-mode) (mode . c++-mode)))
            ("Python" (mode . python-mode))
-           ("Emacs-Lisp" (or (mode . emacs-lisp) (name . ".el")))
+           ("Emacs-Lisp" (or (mode . emacs-lisp-mode) (name . ".el")))
            ("Text" (name . ".txt")))))
   (add-hook 'ibuffer-mode-hook (lambda () (ibuffer-switch-to-saved-filter-groups "default"))))
 
-;; ---------------------------
 ;; LSP и автодополнение
-;; ---------------------------
-
-;; ---------------------------
-;; LSP Settings
-;; ---------------------------
 (use-package lsp-mode
   :commands (lsp lsp-deferred)
   :hook ((python-mode . lsp-deferred)
@@ -702,32 +522,21 @@
   (lsp-headerline-breadcrumb-enable t)
   (lsp-enable-symbol-highlighting t)
   (lsp-signature-auto-activate t)
-  (lsp-disabled-clients '(semgrep))
-  (lsp-clients-clangd-executable "C:/msys64/ucrt64/bin/clangd.exe")
-  (lsp-clients-clangd-args '("--query-driver=C:/mingw64/bin/g++.exe"
-                             "--background-index"
-                             "--clang-tidy"
-                             "--header-insertion=never"
-                             "--log=error"))
-  
+  (lsp-clients-clangd-args '("--query-driver=C:/mingw64/bin/g++.exe"))
   (lsp-csharp-server-path "omnisharp")
   (lsp-csharp-server-args '("-lsp")))
 
 (use-package lsp-pyright
-  :ensure t
   :hook (python-mode . (lambda ()
                          (require 'lsp-pyright)
                          (lsp-deferred))))
 
 (use-package flycheck
-  :ensure t
   :hook (after-init . global-flycheck-mode)
   :config
-  (global-flycheck-mode 1)
   (setq-default flycheck-disabled-checkers '(c/c++-clang c/c++-gcc c/c++-cppcheck)))
 
 (use-package lsp-ui
-  :commands lsp-ui-mode
   :hook (lsp-mode . lsp-ui-mode)
   :config
   (setq lsp-ui-doc-enable t
@@ -750,8 +559,29 @@
   (add-to-list 'company-backends 'company-capf))
 
 ;; C/CPP Mode
+(setq-default c-basic-offset 4)
+(add-hook 'c-mode-hook (lambda () (c-toggle-comment-style -1)))
+(add-hook 'c-mode-hook  #'rainbow-delimiters-mode)
+
+;; Highlights TODO, BUG, NOTE, HACK, FIXME
+(defvar highlight-codetags-keywords
+  '(("\\<\\(TODO\\|BUG\\|FIXME\\)\\>" 1 font-lock-warning-face prepend)
+    ("\\<\\(NOTE\\|HACK\\)\\>" 1 font-lock-doc-face prepend)))
+
+(define-minor-mode highlight-codetags-local-mode
+  "Highlight codetags like TODO, FIXME..."
+  :global nil
+  (if highlight-codetags-local-mode ;; ИСПРАВЛЕНО: было highlight=codetags-local-mode
+      (font-lock-add-keywords nil highlight-codetags-keywords)
+    (font-lock-remove-keywords nil highlight-codetags-keywords))
+  (when (bound-and-true-p font-lock-mode)
+    (if (fboundp 'font-lock-flush)
+        (font-lock-flush)
+      (with-no-warnings (font-lock-fontify-buffer)))))
+
+(add-hook 'prog-mode-hook #'highlight-codetags-local-mode)
+
 (use-package google-c-style
-  :ensure t
   :hook (c-mode-common . google-set-c-style))
 
 (add-hook 'c++-mode-hook
@@ -774,45 +604,36 @@
   (company-box-backends-colors nil)
   (company-box-max-tooltip-width 50))
 
-;; ---------------------------
-;; Magit + Forge
-;; ---------------------------
+;; Magit + forge
 (use-package magit
-  :ensure t
   :custom
   (magit-clone-default-directory (expand-file-name "~/git/"))
   (magit-completing-read-function 'ivy-completing-read)
   :bind (("C-x g" . magit-status)
-         :map mode-specific-map
-         :prefix-map magit-prefix-map
-         :prefix "m"
-              (("s" . magit-status)
-               ("c" . magit-checkout)
-               ("C" . magit-commit)
-               ("d" . magit-diff)
-               ("b" . magit-blame)
-               ("f" . magit-fetch)
-               ("p" . magit-pull-branch)
-               ("P" . magit-push-current)
-               ("r" . magit-reset)
-               ("R" . magit-rebase)
-               ("l" . magit-log)
-               ("t" . magit-tag)
-               ("T" . magit-tag-delete)
-               ("u" . magit-unstage)
-               ("U" . magit-update-index)
-               ("m" . magit)
-               ("B" . magit-branch)
-               ("M" . magit-merge))))
+         ("C-c m s" . magit-status)
+         ("C-c m c" . magit-checkout)
+         ("C-c m C" . magit-commit)
+         ("C-c m d" . magit-diff)
+         ("C-c m b" . magit-blame)
+         ("C-c m f" . magit-fetch)
+         ("C-c m p" . magit-pull-branch)
+         ("C-c m P" . magit-push-current)
+         ("C-c m r" . magit-reset)
+         ("C-c m R" . magit-rebase)
+         ("C-c m l" . magit-log)
+         ("C-c m t" . magit-tag)
+         ("C-c m T" . magit-tag-delete)
+         ("C-c m u" . magit-unstage)
+         ("C-c m U" . magit-update-index)
+         ("C-c m m" . magit)
+         ("C-c m B" . magit-branch)
+         ("C-c m M" . magit-merge)))
 
 (use-package forge
   :after magit)
 
-;; ---------------------------
-;; Clipmon, Reverse-im, Transmission
-;; ---------------------------
+;; Extras
 (use-package clipmon
-  :ensure t
   :hook (after-init . clipmon-mode-start))
 
 (use-package reverse-im
@@ -825,11 +646,7 @@
 (use-package transmission
   :bind (("C-x a t" . transmission)))
 
-;; ---------------------------
-;; EWW, Webjump
-;; ---------------------------
 (use-package eww
-  :defer t
   :custom
   (eww-search-prefix "https://duckduckgo.com/html/?kd=-1&q="))
 
@@ -844,48 +661,23 @@
                    [simple-query "packages.debian.org" "http://packages.debian.org/" ""]))
                 webjump-sample-sites)))
 
-;; ---------------------------
-;; Elfeed
-;; ---------------------------
-
-;;(use-package elfeed
-;;  :bind (("C-x w" . elfeed))
-;; :config
-;;  (setq elfeed-search-title-max-width 120
-;;        elfeed-search-filter "@1-week-ago +unread"))
-
-;; ---------------------------
-;; Which-key
-;; ---------------------------
 (use-package which-key
-  :ensure t
   :hook (after-init . which-key-mode)
   :config
-  ;; Allow C-h to trigger which-key before it is done automatically
   (setq which-key-show-early-on-C-h t
-        ;; Don't show automatically, but refresh quickly after C-h
         which-key-idle-delay 1
         which-key-idle-secondary-delay 0.5)
-  ;; Display in minibuffer (alternative: side-window-bottom/right)
   (which-key-setup-minibuffer))
 
-;; ---------------------------
-;; Dashboard (в стиле Doom Emacs)
-;; ---------------------------
 (use-package dashboard
-  :ensure t
   :init
-  ;; Показывать dashboard при запуске
   (setq inhibit-startup-screen t)
   (setq initial-buffer-choice (lambda ()
                                 (dashboard-open)
                                 (get-buffer "*dashboard*")))
   (dashboard-setup-startup-hook)
   :config
-  ;; Баннер (логотип)
-  (setq dashboard-startup-banner 'logo) ;; варианты: 'official, 'logo, путь к png/jpg
-  
-  ;; Основные элементы
+  (setq dashboard-startup-banner 'logo)
   (setq dashboard-items '((recents   . 7)
                           (bookmarks . 5)
                           (projects  . 5)
@@ -894,35 +686,24 @@
         dashboard-set-heading-icons t
         dashboard-set-file-icons t
         dashboard-show-shortcuts t)
-
-  ;; Красивый заголовок
   (setq dashboard-banner-logo-title "Добро пожаловать в Emacs, Knedl!")
-
-  ;; Нижний текст
   (setq dashboard-footer-messages
         '("Ctrl-x Ctrl-f — открыть файл"
           "Ctrl-x b — переключить буфер"
           "Ctrl-c a — открыть Org Agenda"
           "Ctrl-x g — открыть Magit"
           "Alt-x — вызвать команду"))
-
-  ;; Символы для заголовков
   (setq dashboard-heading-icons '((recents   . "history")
                                   (bookmarks . "bookmark")
                                   (projects  . "rocket")
                                   (agenda    . "calendar"))))
 
-;; Поддержка `projectile` для списка проектов
 (use-package projectile
-  :ensure t
   :config
   (projectile-mode +1)
   (setq projectile-completion-system 'auto)
   (define-key projectile-mode-map (kbd "C-c p m") 'projectile-command-map))
 
-;; ---------------------------
-;; Авто-обновление пакетов
-;; ---------------------------
 (use-package auto-package-update
   :config
   (setq auto-package-update-delete-old-versions t
@@ -931,72 +712,16 @@
   (run-with-idle-timer 5 nil #'auto-package-update-maybe))
 
 (message "Config File Reloaded!")
-;; ---------------------------
-;; Завершение
-;; ---------------------------
-(provide 'init)
-;;; init.el ends here
 
+;; ---------------------------
+;; 8. Custom-переменные
+;; ---------------------------
 (custom-set-variables
  '(custom-safe-themes
    '("aec7b55f2a13307a55517fdf08438863d694550565dee23181d2ebd973ebd6b8"
      default))
  '(package-selected-packages
-   '(ac-math
-     ace-jump-buffer
-     ace-link
-     ace-window
-	 ;; AutoCompany C Language
-	 ac-clang
-	 ac-c-headers
-     achievements
-     all-the-icons
-     auctex auto-package-update
-     bluetooth
-     calfw-org
-     cape
-     cdlatex
-     clang-format
-     clipmon
-     company-box
-     company-math
-     corfu
-     counsel
-     cuda-mode
-     dashboard
-     diminish
-     docker
-     docker-compose-mode
-     dockerfile-mode
-     doom-modeline
-     doom-themes
-     flycheck
-     forge
-     google-translate
-     helpful
-     highlight-numbers
-     info-colors
-     kind-icon
-     lsp-ui
-     multiple-cursors
-     orderless
-     org-bullets
-     page-break-lines
-     paradox
-     pomidor
-     projectile
-     rainbow-delimiters
-     rainbow-identifiers
-     rainbow-mode
-     reverse-im
-     russian-calendar
-     russian-holidays
-     smartparens
-     sudo-edit
-     transmission
-     web-mode
-     yasnippet)))
+   '(ac-math ace-jump-buffer ace-link ace-window achievements all-the-icons auctex auto-package-update bluetooth calfw-org cape cdlatex clang-format clipmon company-box company-math corfu counsel cuda-mode dashboard diminish docker docker-compose-mode dockerfile-mode doom-modeline doom-themes drag-stuff flycheck forge google-translate helpful highlight-numbers info-colors kind-icon lsp-ui multiple-cursors orderless org-bullets page-break-lines paradox pomidor projectile rainbow-delimiters rainbow-identifiers rainbow-mode reverse-im russian-calendar russian-holidays smartparens sudo-edit transmission web-mode yasnippet)))
 
 (custom-set-faces)
-(provide '.emacs)
-;;; .emacs ends here
+;;; init.el ends here
