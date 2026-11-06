@@ -10,7 +10,6 @@ isset ${menu} && goto ${menu} || set menu main_menu
 set user-class iPXE
 set http_srv http://192.168.50.1
 
-
 ############ MAIN MENU ############
 :main_menu
 iseq ${arch} x86_64 && set arch_a amd64 || set arch_a ${arch}
@@ -20,7 +19,8 @@ item --key w wds  			WDS
 item windows_menu			Windows ISO
 item linux_menu				Linux
 item utilities_menu			Utilities
-item --gap --             	------------------------------- Advanced options ---------------------
+item local					Boot from Local Disk
+item --gap --             	------------------------------- Advanced options --------------------------
 item --key c config       	(C)onfigure settings
 item --key s shell          Drop to iPXE (s)hell
 item --key r reboot         (R)eboot computer
@@ -29,7 +29,7 @@ item --key x exit         	E(x)it iPXE and continue BIOS boot
 
 isset ${menu} || set menu main_menu
 set timeout 5000
-choose --timeout ${timeout} --default wds --frozen menu && goto ${selected} || goto wds
+choose --default wds --timeout ${timeout} target && goto ${target}
 echo ${cls}
 goto ${menu} || iseq ${sigs_enabled} true && goto verify_sigs || goto change_menu
 isset ${menu} && goto ${menu} || goto main_menu
@@ -43,6 +43,7 @@ item win10newtest			Windows 10 New AutoTest
 item win10iso  				Windows 10 ISO
 item win11_24h2iso  		Windows 11 24H2 ISO
 item win11_25h2iso  		Windows 11 25H2 ISO
+
 item back Back
 choose selected || goto main_menu
 isset ${selected} && goto ${selected} || goto main_menu
@@ -51,6 +52,7 @@ isset ${selected} && goto ${selected} || goto main_menu
 menu Linux
 item astra_menu				Astra Linux			
 item ubuntu_menu			Ubuntu Linux
+item debian13-trixie		Debian 13.5 Trixie
 item back Back
 choose selected || goto main_menu
 isset ${selected} && goto ${selected} || goto main_menu
@@ -59,6 +61,7 @@ isset ${selected} && goto ${selected} || goto main_menu
 menu Astra
 item astra175				Astra Linux 1.7.5
 item astra183				Astra Linux 1.8.3
+item astra183mwcc			Astra 1.8.3 + MWCC
 item astra_orel				Astra Orel 1.7.5
 item astra_orel_mwcc		Astra Orel 1.7.5 + MWCC
 item astra_voronezh 		Astra Voronezh 1.7.5
@@ -82,10 +85,15 @@ isset ${selected} && goto ${selected} || goto main_menu
 :utilities_menu
 menu Utilities
 item Acronis				Acronis Live
+item memtest32				Memtest32 ISO
+item memtest64				Memtest64 ISO
+item memtest86-pro			Memtest86 PRO
 item netbootxyz  			boot.netboot.xyz
-item Strelec2025  			WinPE Strelec 2025.08.22
+# item Strelec2025  			WinPE Strelec 2025.08.22
+item Strelec2026			WinPE Strelec 2026.05.11
 item WinPEBasicEnhanced  	WinPE Basic Enhanced
-item HirenbootCD			Hiren Boot CD v1.0.8 
+item HirenbootCD			Hiren Boot CD v1.0.8
+# item Rescuezilla			Rescuezilla 2.6.2
 item back Back
 choose selected || goto main_menu
 isset ${selected} && goto ${selected} || goto main_menu
@@ -118,38 +126,23 @@ exit
 :config
 config
 goto main_menu
-############ MAIN MENU ITEMS ############
+############ MAIN MENU ############
 
 
 ############ Windows
 :wds
-sanboot --no-describe ${http_srv}/iso/wds.iso 								|| goto error
+kernel ${http_srv}/iso/wds/wimboot
+initrd ${http_srv}/iso/wds/boot/BCD BCD
+initrd ${http_srv}/iso/wds/boot/boot.sdi boot.sdi
+initrd -n boot.wim ${http_srv}/iso/wds/sources/boot.wim boot.wim 
+boot
+goto main_menu
 
 :win10newtest
 sanboot --no-describe ${http_srv}/iso/win10_subnet50_new_autotest.iso 		|| goto error
 
 :litetouchmdt
 sanboot --no-describe ${http_srv}/iso/LiteTouchPE_x64.iso 					|| goto error
-
-# :win10iso
-# sanboot --no-describe ${http_srv}/iso/windows10.iso 						|| goto error
-
-# :win11_24h2iso
-# sanboot --no-describe ${http_srv}/iso/windows11_24h2.iso 					|| goto error
-
-# :win11_25h2iso
-# sanboot --no-describe ${http_srv}/iso/windows11_25h2.iso 					|| goto error
-
-#:wds_test
-#kernel ${http_srv}/win/wimboot 
-#initrd ${http_srv}/win/boot/BCD BCD
-#initrd ${http_srv}/win/boot/boot.sdi boot.sdi
-#initrd ${http_srv}/win/boot/bootmgr bootmgr
-#initrd ${http_srv}/win/boot/bootmgr.efi bootmgr.efi
-#initrd -n boot.wim ${http_srv}/win/sources/boot.wim boot.wim 
-#boot
-#goto main_menu
-
 
 ############ Linux
 :ubuntud2204
@@ -185,53 +178,62 @@ initrd ${ubuntu2510-base-url}/initrd
 boot
 goto main_menu
 
+:debian13-trixie
+sanboot --no-describe ${http_srv}/iso/debian13-trixie.iso || goto error
+goto main_menu
+
 :astra175
-kernel ${http_srv}/astra/astra/NETINST/linux initrd=initrd.gz vga=788 auto=true priority=critical debian-installer/locale=ru_RU debian-installer/allow_unauthenticated=true console-keymaps-at/keymap=ru #hostname=test2 domain= astra-license/license=true url=192.168.50.1/astra/astra181/preseed.cfg interface=auto netcfg/dhcp_timeout=60 || goto error
-initrd ${http_srv}/astra/astra/NETINST/initrd.gz || goto error
+kernel ${http_srv}/astra/astra/NETINST/LINUX    initrd=INITRD.GZ vga=788 auto=true priority=critical debian-installer/locale=ru_RU debian-installer/allow_unauthenticated=true console-keymaps-at/keymap=ru #hostname=Astra domain= astra-license/license=true url=http://192.168.50.1/astra/astra/preseed_netinst_clean.cfg interface=auto netcfg/dhcp_timeout=60 || goto error
+initrd ${http_srv}/astra/astra/NETINST/INITRD.GZ || goto error
 boot
 chain ${http_srv}/astra/astra/debian-installer/amd64/grub/bootx64.efi || goto error
 goto main_menu
 
 :astra183
-kernel ${http_srv}/astra/astra183/NETINST/linux initrd=initrd.gz vga=788 auto=true priority=critical debian-installer/locale=ru_RU debian-installer/allow_unauthenticated=true console-keymaps-at/keymap=ru #hostname=test2 domain= astra-license/license=true url=192.168.50.1/astra/astra181/preseed.cfg interface=auto netcfg/dhcp_timeout=60 || goto error
-initrd ${http_srv}/astra/astra183/NETINST/linux initrd=initrd.gz debian-installer/allow_unauthenticated=true auto=true priority=critical debian-installer/locale=en_US console-keymaps-at/keymap=ru #hostname=Astra astra-license/license=true url=http://192.168.50.1/astra/astra181/main/preseed.cfg interface=auto netcfg/dhcp_timeout=60 || goto error
-boot
-chain ${http_srv}/astra/astra183/debian-installer/amd64/grub/bootx64.efi || goto error
+kernel ${http_srv}/astra/astra183/NETINST/LINUX initrd=INITRD.GZ vga=788 auto=true priority=critical debian-installer/locale=ru_RU debian-installer/allow_unauthenticated=true console-keymaps-at/keymap=ru hostname=Astra domain= astra-license/license=true url=http://192.168.50.1/astra/astra183/preseed_netinst_clean.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
+initrd ${http_srv}/astra/astra183/NETINST/INITRD.GZ || goto error
+boot || goto error
+goto main_menu
+
+:astra183mwcc
+kernel ${http_srv}/astra/astra183/NETINST/LINUX initrd=INITRD.GZ vga=788 auto=true priority=critical debian-installer/locale=ru_RU debian-installer/allow_unauthenticated=true console-keymaps-at/keymap=ru hostname=Astra domain= astra-license/license=true url=http://192.168.50.1/astra/astra183/preseed_netinst_mwcc.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
+initrd ${http_srv}/astra/astra183/NETINST/INITRD.GZ || goto error
+boot || goto error
 goto main_menu
 
 :astra_smolensk
-kernel ${http_srv}/astra/astra/netinst/linux initrd=initrd.gz debian-installer/allow_unauthenticated=true auto=true priority=critical debian-installer/locale=ru_RU console-keymaps-at/keymap=ru hostname=Astra astra-license/license=true astra-additional-setup/os-check="Maximum security level Smolensk" url=http://192.168.50.1/astra/astra/preseed_netinst_clean.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
-initrd ${http_srv}/astra/astra/netinst/initrd.gz || goto error
+kernel ${http_srv}/astra/astra/netinst/LINUX    initrd=INITRD.GZ vga=788 auto=true priority=critical debian-installer/locale=ru_RU debian-installer/allow_unauthenticated=true console-keymaps-at/keymap=ru hostname=Astra domain= astra-license/license=true astra-additional-setup/os-check="Maximum security level Smolensk" url=http://192.168.50.1/astra/astra/preseed_netinst_clean.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
+initrd ${http_srv}/astra/astra/netinst/INITRD.GZ || goto error
 boot
 goto main_menu
 
 :astra_smolensk_mwcc
-kernel ${http_srv}/astra/astra/netinst/linux initrd=initrd.gz debian-installer/allow_unauthenticated=true auto=true priority=critical debian-installer/locale=ru_RU console-keymaps-at/keymap=ru hostname=Astra astra-license/license=true astra-additional-setup/os-check="Maximum security level Smolensk" url=http://192.168.50.1/astra/astra/preseed_netinst_mwcc.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
-initrd ${http_srv}/astra/astra/netinst/initrd.gz || goto error
+kernel ${http_srv}/astra/astra/netinst/LINUX    initrd=INITRD.GZ vga=788 auto=true priority=critical debian-installer/locale=ru_RU debian-installer/allow_unauthenticated=true console-keymaps-at/keymap=ru hostname=Astra domain= astra-license/license=true astra-additional-setup/os-check="Maximum security level Smolensk" url=http://192.168.50.1/astra/astra/preseed_netinst_mwcc.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
+initrd ${http_srv}/astra/astra/netinst/INITRD.GZ || goto error
 boot
 goto main_menu
 
 :astra_orel
-kernel ${http_srv}/astra/astra/netinst/linux initrd=initrd.gz debian-installer/allow_unauthenticated=true auto=true priority=critical debian-installer/locale=ru_RU console-keymaps-at/keymap=ru hostname=Astra astra-license/license=true astra-additional-setup/os-check="Maximum security level Orel" url=http://192.168.50.1/astra/astra/preseed_netinst_clean.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
-initrd ${http_srv}/astra/astra/netinst/initrd.gz || goto error
+kernel ${http_srv}/astra/astra/netinst/LINUX    initrd=INITRD.GZ vga=788 auto=true priority=critical debian-installer/locale=ru_RU debian-installer/allow_unauthenticated=true console-keymaps-at/keymap=ru hostname=Astra domain= astra-license/license=true astra-additional-setup/os-check="Maximum security level Orel" url=http://192.168.50.1/astra/astra/preseed_netinst_clean.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
+initrd ${http_srv}/astra/astra/netinst/INITRD.GZ || goto error
 boot
 goto main_menu
 
 :astra_orel_mwcc
-kernel ${http_srv}/astra/astra/netinst/linux initrd=initrd.gz debian-installer/allow_unauthenticated=true auto=true priority=critical debian-installer/locale=ru_RU console-keymaps-at/keymap=ru hostname=Astra astra-license/license=true astra-additional-setup/os-check="Maximum security level Orel" url=http://192.168.50.1/astra/astra/preseed_netinst_mwcc.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
-initrd ${http_srv}/astra/astra/netinst/initrd.gz || goto error
+kernel ${http_srv}/astra/astra/netinst/LINUX 	initrd=INITRD.GZ vga=788 auto=true priority=critical debian-installer/locale=ru_RU debian-installer/allow_unauthenticated=true console-keymaps-at/keymap=ru hostname=Astra domain= astra-license/license=true astra-additional-setup/os-check="Maximum security level Orel" url=http://192.168.50.1/astra/astra/preseed_netinst_mwcc.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
+initrd ${http_srv}/astra/astra/netinst/INITRD.GZ || goto error
 boot
 goto main_menu
 
 :astra_voronezh
-kernel ${http_srv}/astra/astra/netinst/linux initrd=initrd.gz debian-installer/allow_unauthenticated=true auto=true priority=critical debian-installer/locale=ru_RU console-keymaps-at/keymap=ru hostname=Astra astra-license/license=true astra-additional-setup/os-check="Maximum security level Voronezh" url=http://192.168.50.1/astra/astra/preseed_netinst_clean.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
-initrd ${http_srv}/astra/astra/netinst/initrd.gz || goto error
+kernel ${http_srv}/astra/astra/netinst/LINUX 	initrd=INITRD.GZ vga=788 auto=true priority=critical debian-installer/locale=ru_RU debian-installer/allow_unauthenticated=true console-keymaps-at/keymap=ru hostname=Astra domain= astra-license/license=true astra-additional-setup/os-check="Maximum security level Voronezh" url=http://192.168.50.1/astra/astra/preseed_netinst_clean.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
+initrd ${http_srv}/astra/astra/netinst/INITRD.GZ || goto error
 boot
 goto main_menu
 
 :astra_voronezh_mwcc
-kernel ${http_srv}/astra/astra/netinst/linux initrd=initrd.gz debian-installer/allow_unauthenticated=true auto=true priority=critical debian-installer/locale=ru_RU console-keymaps-at/keymap=ru hostname=Astra astra-license/license=true astra-additional-setup/os-check="Maximum security level Voronezh" url=http://192.168.50.1/astra/astra/preseed_netinst_mwcc.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
-initrd ${http_srv}/astra/astra/netinst/initrd.gz || goto error
+kernel ${http_srv}/astra/astra/netinst/LINUX 	initrd=INITRD.GZ vga=788 auto=true priority=critical debian-installer/locale=ru_RU debian-installer/allow_unauthenticated=true console-keymaps-at/keymap=ru hostname=Astra domain= astra-license/license=true astra-additional-setup/os-check="Maximum security level Voronezh" url=http://192.168.50.1/astra/astra/preseed_netinst_mwcc.cfg network-console/enable=false interface=auto netcfg/dhcp_timeout=60 || goto error
+initrd ${http_srv}/astra/astra/netinst/INITRD.GZ || goto error
 boot
 goto main_menu
 
@@ -241,11 +243,27 @@ goto main_menu
 sanboot --no-describe ${http_srv}/iso/AcronisBootablePEMedia.iso 	|| goto error
 goto main_menu
 
+:memtest32
+sanboot --no-describe ${http_srv}/iso/memtest32.iso 	|| goto error
+goto main_menu
+
+:memtest64
+sanboot --no-describe ${http_srv}/iso/memtest64.iso 	|| goto error
+goto main_menu
+
+:memtest86-pro
+sanboot --no-describe ${http_srv}/iso/memtest86-7.5-pro.iso			|| goto error
+goto main_menu
+
 :netbootxyz
 chain --autofree http://boot.netboot.xyz/ipxe/netboot.xyz.efi 		|| goto error
 
-:Strelec2025
-sanboot ${http_srv}/iso/WinPE11_Strelec_2025.iso 					|| goto error
+# :Strelec2025
+# sanboot ${http_srv}/iso/WinPE11_Strelec_2025.iso 					|| goto error
+# goto main_menu
+
+:Strelec2026
+sanboot ${http_srv}/iso/WinPE11_Strelec_2026.iso 					|| goto error
 goto main_menu
 
 :WinPEBasicEnhanced
@@ -255,3 +273,7 @@ goto main_menu
 :HirenbootCD
 sanboot ${http_srv}/iso/HBCD_PE_x64.iso 							|| goto error
 goto main_menu
+
+# :Rescuezilla
+# sanboot ${http_srv}/iso/Rescuezilla262.iso							|| goto error
+# goto main_menu

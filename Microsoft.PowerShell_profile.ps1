@@ -19,12 +19,24 @@
 Clear-Host
 
 ### PROGRAMS ###
-function npp {
-    & "C:\Program Files\Notepad++\notepad++.exe" @args
+
+function iperf {
+    Start-Process "D:\SOFT\iperf\iperf3.exe" -ArgumentList "-s" -WindowStyle Hidden
+    Write-Host "iperf was started in SILENT mode"
 }
 
-function vs {
-	& "C:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\devenv.exe" @args
+function npp {
+	$pathX86 = "C:\Program Files (x86)\Notepad++\notepad++.exe"
+	$pathX64 = "C:\Program Files\Notepad++\notepad++.exe"
+	
+	if (Test-Path -Path $pathX86 -PathType Leaf) {
+		& $pathX86 @args
+	} elseif (Test-Path -Path $pathX64 -PathType Leaf) {
+		& $pathX64 @args
+	}
+	else {
+		Write-Host "File: $pathX64 or $pathX86 not found!"
+	}
 }
 
 function ff {
@@ -45,6 +57,18 @@ function ev {
 	& "eventvwr.exe"
 }
 
+## NSSM 
+#### NSSM STATUS
+function nssmst {
+	Get-CimInstance win32_service | Where-Object {$_.PathName -like '*nssm*'} | Select-Object Name, DisplayName, State, PathName
+}
+
+#### NSSM RESTART
+function nssmrst {
+    & "nssm.exe" restart $args
+}
+
+
 function wdscon {
 	& "WdsMgmt.msc"
 }
@@ -61,69 +85,10 @@ function top {
     Get-Process | Sort-Object CPU -Descending | Select-Object -First 15
 }
 
-function syspath {
-	$env:Path -split ";"
-}
-
 function windef {
     param($Name)
     Start-Process "windowsdefender://$Name"
 }
-
-function Get-Sysinternals {
-
-    # Путь для установки Sysinternals
-    $installPath = "C:\Sysinternals"
-
-    # URL последней версии Sysinternals Suite
-    $url = "https://download.sysinternals.com/files/SysinternalsSuite.zip"
-
-    # Создаём папку, если не существует
-    if (-not (Test-Path -Path $installPath)) {
-        New-Item -Path $installPath -ItemType Directory | Out-Null
-    }
-
-    # Путь для временного скачанного архива
-    $tempZip = "$env:TEMP\SysinternalsSuite.zip"
-
-    # Скачиваем архив
-    Write-Host "Downloading Sysinternals Suite..."
-    Invoke-WebRequest -Uri $url -OutFile $tempZip
-
-    # Распаковываем архив
-    Write-Host "Extracting archive..."
-    Expand-Archive -Path $tempZip -DestinationPath $installPath -Force
-    Remove-Item $tempZip
-
-    # Проверка прав администратора
-    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-
-    if ($isAdmin) {
-        # Работаем с системным PATH
-        $oldPath = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine)
-        if ($oldPath -notlike "*$installPath*") {
-            $newPath = "$oldPath;$installPath"
-            [Environment]::SetEnvironmentVariable("Path", $newPath, [EnvironmentVariableTarget]::Machine)
-            Write-Host "Sysinternals Suite added to SYSTEM PATH."
-        } else {
-            Write-Host "Sysinternals Suite already in SYSTEM PATH."
-        }
-    } else {
-        # Работаем с PATH текущего пользователя
-        $oldPathUser = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::User)
-        if ($oldPathUser -notlike "*$installPath*") {
-            $newPathUser = "$oldPathUser;$installPath"
-            [Environment]::SetEnvironmentVariable("Path", $newPathUser, [EnvironmentVariableTarget]::User)
-            Write-Host "Sysinternals Suite added to USER PATH."
-        } else {
-            Write-Host "Sysinternals Suite already in USER PATH."
-        }
-    }
-
-    Write-Host "Installation complete."
-}
-
-
 
 #Home					 		- start windowsdefender:
 #Virus & threat protection 		- start windowsdefender://threat
@@ -221,7 +186,17 @@ function rsdhcp {
 
 ### MISC ### 
 function pg {
-	& ping 192.168.50.1 -n 4
+	Test-Connection 192.168.50.1  -Count 4
+	Test-Connection 192.168.10.18 -Count 4
+}
+
+# Update PowerShell
+function updps {
+	winget upgrade Microsoft.PowerShell
+}
+
+function verps {
+	$PSVersionTable.PSVersion
 }
 
 function ll {
@@ -232,97 +207,138 @@ function la {
     Get-ChildItem -Force -Recurse
 }
 
-function clsx {
-    Clear-Host
-}
-
-### WIM ###
-# Просмотр информации о WIM
-function Get-WimInfo {
+function ai {
     param(
-        [Parameter(Mandatory=$true)]
-        [string]$WimFile
+        [string]$prompt,
+        [string]$model = "gpt-4o"
     )
-    dism /Get-WimInfo /WimFile:$WimFile
+    
+    $headers = @{
+        "Authorization" = "Bearer $env:GITHUB_TOKEN"
+        "Content-Type" = "application/json"
+    }
+    
+    $body = @{
+        model = $model
+        messages = @(
+            @{
+                role = "user"
+                content = $prompt
+            }
+        )
+        max_tokens = 1000
+    } | ConvertTo-Json -Depth 10
+    
+    try {
+        $response = Invoke-RestMethod -Method Post -Uri "https://models.inference.ai.azure.com/chat/completions" -Headers $headers -Body $body
+        return $response.choices[0].message.content
+    } catch {
+        return "❌ Ошибка: $($_.Exception.Message)"
+    }
 }
 
-# Монтирование WIM
-function Mount-WimImage {
+function ai-ru {
     param(
-        [Parameter(Mandatory=$true)]
-        [string]$WimFile,
-        [Parameter(Mandatory=$true)]
-        [string]$MountDir,
-        [int]$Index = 1
+        [string]$prompt,
+        [string]$model = "gpt-4o"
     )
-    if (-not (Test-Path $MountDir)) { New-Item -ItemType Directory -Path $MountDir }
-    dism /Mount-Wim /WimFile:$WimFile /Index:$Index /MountDir:$MountDir
+    
+    $headers = @{
+        "Authorization" = "Bearer $env:GITHUB_TOKEN"
+        "Content-Type" = "application/json"
+    }
+    
+    $body = @{
+        model = $model
+        messages = @(
+            @{
+                role = "user"
+                content = $prompt
+            }
+        )
+        max_tokens = 1000
+    } | ConvertTo-Json -Depth 10
+    
+    try {
+        $response = Invoke-RestMethod -Method Post -Uri "https://models.inference.ai.azure.com/chat/completions" -Headers $headers -Body $body
+        $content = $response.choices[0].message.content
+        
+        # Конвертируем в правильную кодировку
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($content)
+        return [System.Text.Encoding]::UTF8.GetString($bytes)
+    } catch {
+        return "❌ Ошибка: $($_.Exception.Message)"
+    }
 }
 
-# Размонтирование WIM
-function Dismount-WimImage {
+# Также создаем функцию для кода с поддержкой русского
+function ai-code-ru {
     param(
-        [Parameter(Mandatory=$true)]
-        [string]$MountDir,
-        [switch]$Commit
+        [string]$prompt
     )
-    $option = if ($Commit) { "/Commit" } else { "/Discard" }
-    dism /Unmount-Wim /MountDir:$MountDir $option
+    
+    $headers = @{
+        "Authorization" = "Bearer $env:GITHUB_TOKEN"
+        "Content-Type" = "application/json"
+    }
+    
+    $body = @{
+        model = "gpt-4o"
+        messages = @(
+            @{
+                role = "user"
+                content = "$prompt. Return only the code without any explanations or markdown formatting."
+            }
+        )
+        max_tokens = 1000
+    } | ConvertTo-Json -Depth 10
+    
+    try {
+        $response = Invoke-RestMethod -Method Post -Uri "https://models.inference.ai.azure.com/chat/completions" -Headers $headers -Body $body
+        $content = $response.choices[0].message.content
+        $content = $content -replace '```\w*\n?', '' -replace '```', ''
+        
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($content)
+        return [System.Text.Encoding]::UTF8.GetString($bytes)
+    } catch {
+        return "Ошибка: $($_.Exception.Message)"
+    }
 }
 
-# Добавление драйвера в WIM
-function Add-WimDriver {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$MountDir,
-        [Parameter(Mandatory=$true)]
-        [string]$DriverPath
-    )
-    dism /Add-Driver /Image:$MountDir /Driver:$DriverPath
+function ask {
+    python C:\Users\Ilya\ai.py $args
 }
 
-# Добавление пакета в WIM
-function Add-WimPackage {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$MountDir,
-        [Parameter(Mandatory=$true)]
-        [string]$PackagePath
+function Test-ScriptSyntax {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true, Position = 0)]
+        [string]$Path
     )
-    dism /Add-Package /Image:$MountDir /PackagePath:$PackagePath
+
+    process {
+        $ResolvedPath = Resolve-Path $Path -ErrorAction SilentlyContinue
+        if (-not $ResolvedPath) {
+            Write-Error "File not found at path: $Path"
+            return
+        }
+
+        $parseErrors = $null
+        [System.Management.Automation.Language.Parser]::ParseFile($ResolvedPath.Path, [ref]$null, [ref]$parseErrors)
+
+        if ($parseErrors) {
+            Write-Host "Syntax errors found in file: $Path" -ForegroundColor Red
+            $parseErrors | ForEach-Object {
+                Write-Host "- Line ($($_.Extent.StartLineNumber)), Column ($($_.Extent.StartColumnNumber)): $($_.Message)" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "No syntax errors found: $Path" -ForegroundColor Green
+        }
+    }
 }
 
-# Создание загрузочной флешки WinPE
-function Create-WinPEUSB {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$WinPEPath,
-        [Parameter(Mandatory=$true)]
-        [string]$USBDrive
-    )
-    MakeWinPEMedia /UFD $WinPEPath $USBDrive
-}
-
-# Создание ISO WinPE
-function Create-WinPEISO {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$WinPEPath,
-        [Parameter(Mandatory=$true)]
-        [string]$ISOPath
-    )
-    MakeWinPEMedia /ISO $WinPEPath $ISOPath
-}
-
-
-
-### CUSTOM ###
-function wt {
-	$modulePath = Join-Path $HOME "Documents\WindowsPowerShell\Modules"
-	git clone https://github.com/zh54321/Get-WorkTime (Join-Path $modulePath "Get-WorkTime")
-	# Import the module
-	Import-Module Get-WorkTime
-	Get-WorkTime | Format-Table -AutoSize -Wrap
+function install_packages {
+	winget install --id -q Git.Git 7zip.7zip Microsoft.VisualStudioCode Microsoft.PowerShell Microsoft.PowerToys Docker.DockerDesktop Postman.Postman Python.Python.3.14 Mozilla.Firefox VideoLAN.VLC
 }
 
 Set-Alias np npp
